@@ -1,0 +1,368 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= ECHIDNA + echidnabot Integration Points
+:toc: left
+:toc-title: Integration map
+:sectnums:
+
+How Burrower interoperates with ECHIDNA (the prover-orchestration platform)
+and echidnabot (the CI bot that runs ECHIDNA on every push). Three
+relationships, three integration surfaces, three concrete edits each side
+needs.
+
+This is the dedicated companion to:
+
+* `SWARM-DESIGN-MEANDER.adoc` — *why* the swarm exists
+* `AGENT-DSL.adoc` — *how* specialists are defined (in 007)
+* `TYPED-WASM-VERIFICATION.adoc` — how Burrower compiles for verification
+
+This doc covers *the wires between Burrower and ECHIDNA / echidnabot*.
+
+---
+
+== One-screen mental model
+
+[source]
+----
+        ┌──────────────────────────────────────────┐
+        │   author writes lemma / opens PR         │
+        └──────────────────┬───────────────────────┘
+                           │
+              ┌────────────▼────────────┐
+              │     echidnabot          │  ─── CI side
+              │  (webhook → ECHIDNA)    │
+              └─────┬────────────┬──────┘
+                    │            │
+       (today)      │            │  (planned)
+                    ▼            ▼
+        ┌──────────────────┐  ┌──────────────────────┐
+        │  ECHIDNA prove   │  │  Burrower swarm       │
+        │  → green / red   │  │  → readings + ledger  │
+        └──────────────────┘  └──────────┬────────────┘
+                                         │
+                                         │  consensus homes,
+                                         │  anti-patterns,
+                                         │  boundary-object flag
+                                         ▼
+                           ┌─────────────────────────┐
+                           │  PR comment / check run  │
+                           │  (echidnabot publishes)  │
+                           └──────────────────────────┘
+----
+
+== Today (no integration)
+
+* `echidna prove <file>` — single-shot verification, returns pass/fail
+* `echidnabot` — receives push/PR webhooks, dispatches `echidna prove`,
+  publishes a check run
+* Burrower's `attempt` subcommand subprocess-invokes `echidna prove` for
+  each (specialist × tactic) pair (this is the only existing wire today)
+
+That third bullet is the *only* current integration point. Everything else
+in this document is **planned**.
+
+== ECHIDNA — three concrete changes
+
+=== EI-1 (small): project-aware probe
+
+**Problem.** `echidna prove <file>` stages the file in `/tmp/echidna_*/`
+without copying sibling theory files, so any goal that imports
+project-specific theories (`Tropical_v2`, `walks_def`, ...) fails to
+parse. Burrower's `attempt` mode therefore can only test goals that
+import `Main` only — a severe limitation.
+
+**Fix.** Add a `--project-root <dir>` flag (or auto-detect a `ROOT` file
+walking upward from the supplied path). When set, ECHIDNA stages the
+file *together with* the project's session — either by copying the
+relevant theories or by running `isabelle build -D <root> -v <session>`
+and capturing per-theory results.
+
+**Acceptance test.**
+[source,bash]
+----
+echidna prove --prover Isabelle --project-root . \
+  verification-ecosystem/tropical-resource-typing/Tropical_Ordinal.thy
+# expect: Proof verified, all 15 lemmas, ~3s
+----
+Currently fails because `Tropical_v2` import isn't carried.
+
+**Burrower side.** `crates/burrower-core/src/attempt.rs::run_probe`
+gains a `project_root: Option<PathBuf>` field on `ProverConfig`. Probe
+generation can stop inlining `imports Main` and use the project's
+imports verbatim.
+
+=== EI-2 (medium): `echidna suggest` subcommand
+
+**Problem.** When `echidna prove` returns red, the user sees only
+"failed". No suggested fix, no related lemmas, no tactic alternatives.
+The `--diagnose` flag prints generic advice ("try a smaller example").
+
+**Fix.** New top-level subcommand:
+[source]
+----
+echidna suggest <file>:<lemma> [--budget 60s] [--burrower <socket>]
+----
+
+Behavior:
+
+. Extract the lemma's statement into a probe.
+. Run Sledgehammer for `--budget` seconds (Isabelle has this built-in).
+. **If `--burrower` socket is provided**, send the goal to the Burrower
+  swarm; receive back ranked candidate homes + anti-patterns from the
+  ledger. Format as additional suggestions.
+. Try a curated list of *substitutions* (the synonym table from
+  `AI-WORK-echidna.md` §3.2): `induct→induction`,
+  `add_le_add→add_mono`, `omega→linarith`, `by simp ↔ by auto`, etc.
+. Report which variants closed.
+
+**Why this matters.** This session's two ECHIDNA-discovered fixes
+(`induct → induction`, `add_le_add → add_mono`) would have come for
+free from the substitution loop. The Burrower hits (e.g., the
+`tropm_walks_sum_mono_subset` dual lemma pointer) would surface as
+"see also" recommendations.
+
+**Implementation sketch.**
+[source]
+----
+src/rust/main.rs                 # add Suggest variant to Cli
+src/rust/suggest/mod.rs          # new module
+src/rust/suggest/synonyms.toml   # the curated substitution table
+src/rust/suggest/burrower.rs     # optional client to Burrower socket
+----
+
+=== EI-3 (large): native ledger consumer
+
+**Problem.** When ECHIDNA fails to close a goal, that failure isn't
+recorded anywhere reusable. The next time someone tries the same goal,
+ECHIDNA repeats the same exhaustive search.
+
+**Fix.** ECHIDNA gains a Burrow-Ledger writer: every prove invocation
+appends a `LedgerRecord` (matching the schema in
+`crates/burrower-core/src/ledger.rs`) to a configured ledger file.
+Successful proofs become positive patterns; failures become
+anti-patterns or generic-failures.
+
+Configuration:
+[source,toml]
+----
+# ~/.config/echidna/config.toml
+[ledger]
+path = "/var/lib/echidna/burrow.jsonl"
+auto_record = true
+specialist_name = "Echidna"  # appears in the ledger as the author
+----
+
+**Why this matters.** ECHIDNA becomes a first-class participant in the
+swarm's shared knowledge layer rather than an opaque external prover.
+Other specialists in the swarm can read ECHIDNA's track record and
+update their playbooks.
+
+== echidnabot — three concrete changes
+
+=== EBI-1 (small): swarm-findings section in PR comments
+
+**Problem.** echidnabot's PR comments today say "✓ all proofs
+verified" or "✗ proof X failed at line Y". No domain context, no
+related-work pointer, no anti-pattern callout.
+
+**Fix.** When a Burrower socket is configured, echidnabot routes every
+new/changed lemma through `burrower swarm` and includes the synthesis
+output in the PR comment as a collapsed "Swarm findings" section.
+
+Example PR comment delta:
+[source,markdown]
+----
+✓ Proof verified: trop_walks_sum_mono_subset (line 720, 33ms)
+
+<details>
+<summary>🦔 Swarm findings (3 specialists engaged)</summary>
+
+**Boundary object** across Combinatorics, Order Theory, Algebra.
+
+Consensus homes:
+- `trop_walks_sum_ge_member` (cited by all 3)
+- `tropm_walks_sum_mono_subset` (min-plus dual — port pattern available)
+
+Algebraist anti-pattern (most-recent ledger): `simp` known to fail on
+this shape; auto succeeds (3 prior runs).
+
+</details>
+----
+
+**Implementation surface.** `bots/echidnabot/src/feedback/swarm.rs`
+(new). Plumbed from the post-verification hook.
+
+=== EBI-2 (medium): ledger as first-class CI artifact
+
+**Problem.** The Burrow Ledger is a local-disk JSONL today. CI runs
+should append to a shared, persistent ledger so knowledge accumulates
+across PRs and over time.
+
+**Fix.** echidnabot uploads the per-PR ledger delta to a configured
+storage backend (S3 / VeriSimDB per estate policy). The full repo
+ledger is reconstructible from the deltas. New PRs can read the
+historical ledger to surface anti-patterns from prior similar work.
+
+Schema (TOML):
+[source,toml]
+----
+[ledger.storage]
+backend = "verisimdb"  # or "s3" or "local"
+url     = "vsdb://swarm/burrow-ledger"
+
+[ledger.delta]
+upload_on   = ["pr-merged", "main-push"]
+delta_only  = true   # don't re-upload the whole ledger every time
+----
+
+=== EBI-3 (large): ECHIDNA-failure → swarm-remediation auto-PR
+
+**Problem.** When ECHIDNA finds a real proof failure on `main`, the
+fix has to be done manually. Even if the swarm's ledger contains a
+known-good substitution (e.g. `induct → induction`), echidnabot
+doesn't propose it.
+
+**Fix.** echidnabot gains a "remediation mode": on a verified ECHIDNA
+failure, query the swarm + ledger for known good fixes; if confidence
+exceeds a threshold, auto-open a PR with the suggested edit. PR
+description cites the ledger evidence.
+
+Confidence threshold: configurable, defaults to **0.8** (i.e., fix is
+known to have worked on 4 out of 5 prior similar goals). Below
+threshold, echidnabot posts as a comment-only suggestion.
+
+Operational policy: PR labels include `swarm-suggested` so reviewers
+can filter; auto-PR rate-limited per repo per day.
+
+== Burrower side — three reciprocal hooks
+
+=== BI-1 (small): expose `burrower serve` socket
+
+**Today.** Burrower runs as a one-shot CLI.
+
+**Fix.** Add `burrower serve --socket /tmp/burrower.sock` that listens
+on a Unix socket for `swarm` / `attempt` / `ledger` requests in JSON.
+ECHIDNA's `--burrower` flag and echidnabot's swarm-findings hook both
+consume this socket.
+
+Protocol: simple line-delimited JSON (request: `{cmd, args}`,
+response: same as the CLI's `--format json` output).
+
+=== BI-2 (medium): ECHIDNA-as-specialist
+
+**Today.** Burrower's specialists are pure Rust types.
+
+**Fix.** Add an `EchidnaSpecialist` that, given a goal, dispatches
+through `echidna prove` rather than running its own playbook. Lets
+the swarm treat ECHIDNA as just another agent — competing with
+Algebraist / OrderTheorist / Combinatorialist on every goal.
+
+Why valuable: gives a baseline (ECHIDNA is the strongest single
+prover) so the other specialists' contribution is measurable as
+*marginal* over the baseline.
+
+=== BI-3 (large): bidirectional ledger sync
+
+**Today.** Burrower writes its own ledger. ECHIDNA writes its own
+(after EI-3).
+
+**Fix.** Both write to the *same* ledger via a shared socket. The
+`Specialist` trait's `record_attempt` hook becomes the single write
+point. ECHIDNA shows up as one specialist among many in the digest.
+
+== Stability / dependency map
+
+[cols="1,1,1,3"]
+|===
+|Change |Effort |Risk |Depends on
+
+|EI-1 (project-aware probe)
+|days
+|low
+|nothing
+
+|EI-2 (suggest verb)
+|weeks
+|low
+|EI-1, BI-1
+
+|EI-3 (ECHIDNA→Ledger)
+|weeks
+|low
+|nothing
+
+|EBI-1 (swarm in PR comments)
+|days
+|low
+|BI-1
+
+|EBI-2 (ledger CI artifact)
+|days
+|medium
+|EI-3 OR Burrower-only ledger
+
+|EBI-3 (auto-remediation PR)
+|months
+|HIGH (auto-edit on main!)
+|EI-2, EI-3, EBI-1, EBI-2, BI-3
+
+|BI-1 (`burrower serve` socket)
+|days
+|low
+|nothing
+
+|BI-2 (ECHIDNA as specialist)
+|days
+|low
+|BI-1
+
+|BI-3 (bidirectional ledger)
+|weeks
+|medium
+|EI-3, BI-1
+|===
+
+**Suggested first-week slice:** EI-1 + BI-1. These two are independent,
+small, and unlock everything else without touching anything risky.
+
+== What this doc deliberately does NOT cover
+
+* The **swarm coordination protocol** beyond message types — that's
+  in `SWARM-DESIGN-MEANDER.adoc` §6.
+* The **agent definition language** — in `AGENT-DSL.adoc`.
+* **typed-wasm verification** of either side's code — in
+  `TYPED-WASM-VERIFICATION.adoc`.
+* **MCP integration**. Per estate policy
+  (`feedback_boj_only_mcp.md`), all MCP servers go through BoJ; we do
+  not install standalone MCP servers from echidna or echidnabot. If
+  Burrower needs MCP-like exposure, it goes via BoJ, not directly.
+
+== Open questions
+
+. Should the Burrow Ledger be one global file per estate, or one per
+  repo? Probably per-repo with a global digest layer, but TBD.
+. Should ECHIDNA's `suggest` learn from the ledger to *order* its
+  Sledgehammer attempts (cheap-tactic-first based on prior success
+  rates)? Probably yes; out of scope for v1 of EI-2.
+. Should echidnabot's auto-remediation PRs be opt-in per-repo? Almost
+  certainly yes — the blast radius of an auto-edit on main is huge.
+  Default to off; require explicit `[swarm.auto_remediate] = true` in
+  echidnabot's repo config.
+
+== Provenance
+
+This document was written 2026-04-26 during the
+`tropical-resource-typing` proof-repair session. The session itself
+generated three of the integration ideas:
+
+* EI-1 — discovered when Burrower's `attempt` mode couldn't be used on
+  any of the 7 broken proofs because they all referenced project-specific
+  imports.
+* EI-2 — the two ECHIDNA-driven discoveries (`induct → induction`,
+  `add_le_add → add_mono`) showed how valuable a substitution loop
+  would be.
+* EBI-1 — Burrower correctly identified `path_weightm_cycle_excise`
+  as the dual of the failing `path_weight_cycle_excise` lemma; this
+  was real diagnostic value that should reach the PR author.
+
+The remaining six items (EI-3, EBI-2, EBI-3, BI-1, BI-2, BI-3) are
+forward-looking but follow naturally from the three observed wins.
