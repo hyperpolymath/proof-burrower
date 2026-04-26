@@ -41,6 +41,7 @@
 //! NumberTheorist, Geometer, Probabilist, PhilosopherOfMath
 //! (foundational reading), Constructivist (proof-theoretic strength).
 
+use crate::attempt::{run_playbook, Playbook, ProofAttempt, ProverConfig, TacticTemplate};
 use crate::corpus::{Corpus, IndexedLemma};
 use crate::goal::Goal;
 use crate::ledger::{record_reading, Ledger};
@@ -168,6 +169,16 @@ pub trait Specialist {
             },
         }
     }
+
+    /// The specialist's playbook — domain-specific tactics it will
+    /// try when actively attempting a proof. Default is empty;
+    /// concrete specialists override.
+    fn playbook(&self) -> Playbook {
+        Playbook {
+            specialist: self.name().to_string(),
+            tactics: Vec::new(),
+        }
+    }
 }
 
 /// Below this relevance score a specialist does not contribute homes.
@@ -197,6 +208,33 @@ impl Specialist for Algebraist {
             "zero", "one", "neginf", "fin",
         ]
     }
+    fn playbook(&self) -> Playbook {
+        Playbook {
+            specialist: "Algebraist".to_string(),
+            tactics: vec![
+                TacticTemplate {
+                    name: "simp".to_string(),
+                    script: "by simp".to_string(),
+                    description: "Isabelle simplifier — closes equational arithmetic goals.".to_string(),
+                },
+                TacticTemplate {
+                    name: "auto".to_string(),
+                    script: "by auto".to_string(),
+                    description: "Combined simp+blast+intro — broader than simp alone.".to_string(),
+                },
+                TacticTemplate {
+                    name: "algebra-simps".to_string(),
+                    script: "by (simp add: algebra_simps)".to_string(),
+                    description: "Simplifier with algebra rewriting rules.".to_string(),
+                },
+                TacticTemplate {
+                    name: "ring-arith".to_string(),
+                    script: "by (simp add: field_simps)".to_string(),
+                    description: "Field/ring arithmetic simplification.".to_string(),
+                },
+            ],
+        }
+    }
 }
 
 pub struct OrderTheorist;
@@ -215,6 +253,33 @@ impl Specialist for OrderTheorist {
             "absorb", "idempotent",
         ]
     }
+    fn playbook(&self) -> Playbook {
+        Playbook {
+            specialist: "OrderTheorist".to_string(),
+            tactics: vec![
+                TacticTemplate {
+                    name: "simp".to_string(),
+                    script: "by simp".to_string(),
+                    description: "Simplifier on basic order facts.".to_string(),
+                },
+                TacticTemplate {
+                    name: "order-trans".to_string(),
+                    script: "by (rule order_trans)".to_string(),
+                    description: "Transitivity of ≤.".to_string(),
+                },
+                TacticTemplate {
+                    name: "order-auto".to_string(),
+                    script: "by (auto intro: order_trans)".to_string(),
+                    description: "Auto with transitivity hint.".to_string(),
+                },
+                TacticTemplate {
+                    name: "subset-decompose".to_string(),
+                    script: "by (auto simp: subset_iff)".to_string(),
+                    description: "Element-wise subset reasoning.".to_string(),
+                },
+            ],
+        }
+    }
 }
 
 pub struct Combinatorialist;
@@ -231,6 +296,33 @@ impl Specialist for Combinatorialist {
             "induction", "induct", "base", "step",
             "sigma", "union", "insert", "filter",
         ]
+    }
+    fn playbook(&self) -> Playbook {
+        Playbook {
+            specialist: "Combinatorialist".to_string(),
+            tactics: vec![
+                TacticTemplate {
+                    name: "simp".to_string(),
+                    script: "by simp".to_string(),
+                    description: "Simplifier on finite-set facts.".to_string(),
+                },
+                TacticTemplate {
+                    name: "auto".to_string(),
+                    script: "by auto".to_string(),
+                    description: "General-purpose first attempt.".to_string(),
+                },
+                TacticTemplate {
+                    name: "induction-finite".to_string(),
+                    script: "by (induction rule: finite_induct) auto".to_string(),
+                    description: "Modern finite-set induction (NB: induction not induct).".to_string(),
+                },
+                TacticTemplate {
+                    name: "induction-list".to_string(),
+                    script: "by (induction xs) auto".to_string(),
+                    description: "Structural induction on a list named xs.".to_string(),
+                },
+            ],
+        }
     }
 }
 
@@ -303,6 +395,36 @@ impl Swarm {
             }
         }
         readings
+    }
+
+    /// Run every engaged specialist's playbook against the goal.
+    /// Returns one [`ProofAttempt`] per (specialist, tactic) pair.
+    /// All attempts are recorded to the ledger if one is supplied.
+    ///
+    /// This is where Burrower stops being a router and starts being
+    /// a worker: specialists actually try proofs, the ledger records
+    /// what worked, the swarm gets smarter over time.
+    pub fn attempt_all(
+        &self,
+        goal: &Goal,
+        prover: &ProverConfig,
+        ledger: Option<&Ledger>,
+    ) -> Vec<ProofAttempt> {
+        let mut all = Vec::new();
+        for s in &self.specialists {
+            if s.relevance(goal) < SWARM_RELEVANCE_THRESHOLD {
+                continue;
+            }
+            let playbook = s.playbook();
+            if playbook.tactics.is_empty() {
+                continue;
+            }
+            match run_playbook(goal, &playbook, prover, ledger) {
+                Ok(mut attempts) => all.append(&mut attempts),
+                Err(e) => eprintln!("warning: playbook failed for {}: {e}", s.name()),
+            }
+        }
+        all
     }
 
     /// Synthesise the readings into a single picture. The "head agent":

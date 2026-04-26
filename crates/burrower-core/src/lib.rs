@@ -31,6 +31,7 @@ pub mod corpus;
 pub mod ranking;
 pub mod specialist;
 pub mod ledger;
+pub mod attempt;
 
 pub use goal::{parse_goal, Goal};
 pub use corpus::{Corpus, IndexedLemma, LibraryKind};
@@ -42,4 +43,8 @@ pub use specialist::{
 pub use ledger::{
     goal_hash, new_id, now_iso, record_reading,
     Approach, Learning, Ledger, LedgerRecord, RecordResult,
+};
+pub use attempt::{
+    generate_probe, run_playbook, run_probe,
+    AttemptResult, Playbook, ProofAttempt, ProverConfig, TacticTemplate,
 };

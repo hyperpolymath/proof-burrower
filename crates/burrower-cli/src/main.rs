@@ -10,7 +10,7 @@
 //!   given a goal, return ranked candidate "homes".
 
 use anyhow::Result;
-use burrower_core::{parse_goal, rank, Corpus, Ledger, Swarm};
+use burrower_core::{parse_goal, rank, Corpus, Ledger, ProverConfig, Swarm};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -74,6 +74,30 @@ enum Cmd {
         /// Optional path to the Burrow Ledger for auto-recording.
         #[arg(long)]
         ledger: Option<PathBuf>,
+    },
+    /// Run every engaged specialist's playbook against the goal —
+    /// actually attempt proofs through ECHIDNA. Each (specialist,
+    /// tactic) attempt is recorded in the ledger.
+    ///
+    /// Today: dispatches to ECHIDNA's Isabelle backend. The probe
+    /// file uses `imports Main` only; goals referencing external
+    /// theories will fail (which is itself useful data for the
+    /// ledger).
+    Attempt {
+        /// The proof goal as a string. Quote it.
+        goal: String,
+        /// Path to the echidna binary.
+        #[arg(long, default_value = "/var/mnt/eclipse/repos/echidna/target/debug/echidna")]
+        echidna: PathBuf,
+        /// Per-attempt timeout (seconds), passed to `echidna prove -t`.
+        #[arg(long, default_value_t = 60)]
+        timeout: u32,
+        /// Append every attempt to this ledger file.
+        #[arg(long)]
+        ledger: PathBuf,
+        /// Output format: `text` (default) or `json`.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Burrow Ledger inspection.
     Ledger {
@@ -201,9 +225,77 @@ fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
     Ok(())
 }
 
+fn handle_attempt(
+    goal: String,
+    echidna: PathBuf,
+    timeout: u32,
+    ledger: PathBuf,
+    format: String,
+) -> Result<()> {
+    let parsed = parse_goal(&goal);
+    let swarm = Swarm::new();
+    let l = Ledger::open(&ledger)?;
+    let prover = ProverConfig {
+        echidna_path: echidna,
+        timeout_secs: timeout,
+        workdir: None,
+    };
+    let attempts = swarm.attempt_all(&parsed, &prover, Some(&l));
+
+    match format.as_str() {
+        "json" => println!("{}", serde_json::to_string_pretty(&attempts)?),
+        _ => {
+            println!(
+                "Burrower attempt — {} attempt(s) across {} specialist(s):\n",
+                attempts.len(),
+                attempts
+                    .iter()
+                    .map(|a| &a.specialist)
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+            );
+            let mut succeeded = 0usize;
+            let mut failed = 0usize;
+            let mut skipped = 0usize;
+            for a in &attempts {
+                let badge = if a.result.is_success() { "✓" } else { "✗" };
+                println!(
+                    "  {} [{}] {} → {}",
+                    badge,
+                    a.specialist,
+                    a.tactic_name,
+                    a.result.status_string()
+                );
+                match a.result.is_success() {
+                    true => succeeded += 1,
+                    false => match &a.result {
+                        burrower_core::AttemptResult::Skipped { .. } => skipped += 1,
+                        _ => failed += 1,
+                    },
+                }
+            }
+            println!(
+                "\nSummary: {} succeeded · {} failed · {} skipped",
+                succeeded, failed, skipped
+            );
+            if succeeded == 0 && failed > 0 {
+                println!(
+                    "\nNo tactic in any specialist's playbook closed this goal. \
+                     Anti-patterns recorded in {}.",
+                    ledger.display()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
+        Cmd::Attempt { goal, echidna, timeout, ledger, format } => {
+            return handle_attempt(goal, echidna, timeout, ledger, format)
+        }
         Cmd::Ledger { sub } => return handle_ledger(sub),
         Cmd::Index { root, output } => {
             let corpus = Corpus::index(&root)?;
