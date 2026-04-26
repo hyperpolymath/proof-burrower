@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Typed-WASM Verification Pipeline
+:toc: left
+:sectnums:
+
+How Burrower's `.wasm` artifact gets verified by ECHIDNA's `typed_wasm`
+prover-oracle. This is the answer to *"compile to typed wasm"* in two
+parts: **compile** (today, working) and **verify** (today, scaffolded).
+
+== What ships today
+
+[cols="1,3,1"]
+|===
+|Stage |Description |Status
+
+|*Compile to wasm32*
+|`burrower-wasm` is a `cdylib` over `burrower-core`. Builds with the
+ rustup stable toolchain (the Fedora system rustc lacks the wasm32
+ stdlib). Produces an 81 KB `.wasm` blob, valid WASM v1 (MVP).
+|✓ done
+
+|*Justfile recipe*
+|`just wasm` builds the release artifact. PATH is set to rustup's
+ stable toolchain so the recipe is reproducible regardless of host
+ rustc.
+|✓ done
+
+|*ABI surface*
+|Six C-ABI exports: `add`, `version`, `parse_goal_json`,
+ `goal_hash_hex`, `alloc`, `dealloc`. Strings flow through
+ caller-managed buffers; no implicit allocation. Conservative for
+ verifier consumption.
+|✓ done
+
+|*ECHIDNA typed_wasm dispatch*
+|`echidna prove --prover TypedWasm <wasm-path>` would dispatch to the
+ typed_wasm oracle and return proof obligations. Today, ECHIDNA's
+ `typed_wasm` accepts `.twasm` (typed-wasm with region annotations),
+ not raw `.wasm`. We need the annotation step.
+|⚙ scaffolded
+
+|*Region annotations*
+|Burrower's wasm needs typed-wasm region annotations describing
+ memory regions (linear / affine / shared) and the discipline each
+ obeys. These are emitted as a sibling `.twasm.json` per build.
+|⚙ planned
+
+|*Discharge*
+|Once annotations are in place, the typed_wasm oracle (10-level type
+ safety system) emits proof obligations that ECHIDNA's prover
+ portfolio discharges. The certificate is shipped alongside the
+ wasm.
+|⚙ planned
+|===
+
+== The pipeline (target shape)
+
+[source]
+----
+              ┌──────────────────────────────┐
+              │  burrower-core + burrower-wasm│
+              │  (Rust cdylib)               │
+              └──────────────┬───────────────┘
+                             │ cargo build --target wasm32
+                             ▼
+              ┌──────────────────────────────┐
+              │  burrower_wasm.wasm (81 KB)  │
+              └──────────────┬───────────────┘
+                             │ + region annotations
+                             ▼
+              ┌──────────────────────────────┐
+              │  burrower.twasm              │
+              │  (.wasm + .twasm.json)       │
+              └──────────────┬───────────────┘
+                             │ echidna prove --prover TypedWasm
+                             ▼
+              ┌──────────────────────────────┐
+              │  typed_wasm oracle           │
+              │  (10-level safety system)    │
+              └──────────────┬───────────────┘
+                             │ proof obligations
+                             ▼
+              ┌──────────────────────────────┐
+              │  ECHIDNA prover portfolio    │
+              │  (Z3, Vampire, …)            │
+              └──────────────┬───────────────┘
+                             │
+                             ▼
+              ┌──────────────────────────────┐
+              │  burrower.cert               │
+              │  (proof certificate)         │
+              └──────────────────────────────┘
+----
+
+The `burrower.cert` is what makes Burrower a *typed-wasm* artifact in
+the strong sense — not just compiled to wasm, but proven to satisfy
+its declared type/region discipline.
+
+== Why this is non-trivial
+
+A naive "compile to wasm" gives you a binary that runs. *Typed* wasm
+gives you a binary that runs *and provably respects* its memory
+disciplines (no use-after-free; no aliased linear references;
+session-typed I/O; etc.). The 10-level safety system in echidna's
+typed_wasm covers:
+
+. Linear types (use-once references)
+. Affine types (use-at-most-once)
+. Modal types (necessity / possibility)
+. Temporal types (when can a value be observed)
+. Refinement types (predicates over base types)
+. Session types (typed channels with protocol)
+. Region types (memory partitioned into named regions)
+. Capability types (authority restrictions)
+. Effect types (what side-effects can occur)
+. Identity types (HoTT-style equality)
+
+Burrower's wasm doesn't yet use any of these consciously. Adding
+region annotations + a session-typed entry point for the swarm
+protocol would unlock the verification.
+
+== Action items (from the meander)
+
+. *Region annotations on the alloc/dealloc pair.* Mark them as
+  managing a named region; assert no aliasing between caller-supplied
+  buffers and Burrower's internal allocations.
+. *Session protocol on the entry points.* `parse_goal_json` consumes
+  a goal, produces a Goal-JSON; declare this as a session type with
+  the BurrowerSwarm contract.
+. *Linear capabilities for the Ledger.* If Burrower exposed a
+  `ledger_append` ABI, it would be a linear capability — the host
+  must surrender the capability after one append (or use a lend
+  pattern).
+
+These three would give us a meaningful typed-wasm contract to
+verify. Today's MVP doesn't enforce them at the type level — they
+live in the comments and in the docs.
+
+== How to build the wasm artifact today
+
+[source,bash]
+----
+just wasm
+# or:
+PATH=$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH \
+  cargo build --release --target wasm32-unknown-unknown -p burrower-wasm
+
+ls -lh target/wasm32-unknown-unknown/release/burrower_wasm.wasm
+# -rwxr-xr-x. ... 81K ... burrower_wasm.wasm
+----
+
+The artifact exports (heuristic via `strings`):
+
+* `add(u32, u32) -> u32` — smoke test
+* `version(out_ptr, out_cap) -> bytes_written` — version string
+* `parse_goal_json(goal_ptr, goal_len, out_ptr, out_cap) -> bytes_written`
+  — goal parser
+* `goal_hash_hex(goal_ptr, goal_len, out_ptr, out_cap) -> bytes_written`
+  — goal hash
+* `alloc(n) -> ptr` — host-managed allocation
+* `dealloc(ptr, n)` — free

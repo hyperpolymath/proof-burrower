@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+#
+# Pin to rustup's stable toolchain so wasm32-unknown-unknown is
+# available reliably. The Fedora-packaged system rustc does not
+# ship the wasm32-unknown-unknown standard library; rustup does.
+#
+# Override this if you need nightly features (none today).
+
+[toolchain]
+channel    = "stable"
+components = ["rustfmt", "clippy"]
+targets    = ["wasm32-unknown-unknown"]
+profile    = "minimal"

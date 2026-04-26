@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+[package]
+name        = "burrower-wasm"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+description = "wasm32-unknown-unknown shim around burrower-core; produces a .wasm blob suitable for typed_wasm verification."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+burrower-core = { path = "../burrower-core" }
+serde_json    = { workspace = true }

@@ -4,6 +4,7 @@ resolver = "2"
 members = [
     "crates/burrower-core",
     "crates/burrower-cli",
+    "crates/burrower-wasm",
 ]
 
 [workspace.package]
@@ -20,3 +21,9 @@ serde_json  = "1"
 clap        = { version = "4", features = ["derive"] }
 walkdir     = "2"
 regex       = "1"
+
+# Wasm release profile — optimise for size, used by burrower-wasm.
+[profile.release]
+opt-level   = "s"
+lto         = true
+strip       = true

@@ -1630,3 +1630,46 @@ handover-model path=".":
 
 handover-human path=".":
     @./session/dispatch.sh handover human "{{path}}"
+
+# ====================================================================
+# Burrower-specific recipes (proof-burrower)
+# ====================================================================
+
+# Path to rustup's stable toolchain. The Fedora system rustc lacks
+# the wasm32-unknown-unknown stdlib; rustup ships it.
+rustup_stable := "/home/hyper/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin"
+
+# Build the Burrower CLI (debug).
+build-burrower:
+    PATH="{{rustup_stable}}:$PATH" cargo build
+
+# Run the burrower test suite.
+test-burrower:
+    PATH="{{rustup_stable}}:$PATH" cargo test --workspace
+
+# Build the typed-wasm artifact.
+wasm:
+    PATH="{{rustup_stable}}:$PATH" cargo build --release --target wasm32-unknown-unknown -p burrower-wasm
+    @ls -lh target/wasm32-unknown-unknown/release/burrower_wasm.wasm
+
+# Index a corpus directory into a JSON index file.
+# Usage: just index /path/to/corpus /tmp/idx.json
+index root output:
+    PATH="{{rustup_stable}}:$PATH" cargo run --release -p burrower -- index "{{root}}" --output "{{output}}"
+
+# Run the swarm against a goal, optionally appending to a ledger.
+# Usage: just swarm "lemma foo: ..." /tmp/idx.json /tmp/burrow.jsonl
+swarm goal index ledger="":
+    @if [ -n "{{ledger}}" ]; then \
+        PATH="{{rustup_stable}}:$PATH" cargo run --release -p burrower -- swarm "{{goal}}" --index "{{index}}" --ledger "{{ledger}}"; \
+    else \
+        PATH="{{rustup_stable}}:$PATH" cargo run --release -p burrower -- swarm "{{goal}}" --index "{{index}}"; \
+    fi
+
+# Show the most-recent ledger records.
+ledger-recent path limit="10":
+    PATH="{{rustup_stable}}:$PATH" cargo run --release -p burrower -- ledger recent --path "{{path}}" --limit "{{limit}}"
+
+# Aggregate digest of the ledger.
+ledger-digest path:
+    PATH="{{rustup_stable}}:$PATH" cargo run --release -p burrower -- ledger digest --path "{{path}}"
