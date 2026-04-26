@@ -43,6 +43,7 @@
 
 use crate::corpus::{Corpus, IndexedLemma};
 use crate::goal::Goal;
+use crate::ledger::{record_reading, Ledger};
 use crate::ranking::{rank, Home};
 use serde::{Deserialize, Serialize};
 
@@ -268,6 +269,21 @@ impl Swarm {
     /// if relevance is low, so the caller can see who *didn't* engage
     /// — a useful negative signal).
     pub fn route(&self, goal: &Goal, corpus: &Corpus, top: usize) -> Vec<Reading> {
+        self.route_with_ledger(goal, corpus, top, None)
+    }
+
+    /// Run all specialists; if a ledger is supplied, append one record
+    /// per Reading. This is the operational heart of the
+    /// trial-and-error multiplier: every approach an agent takes is
+    /// persisted, so subsequent agents (on later goals) can build on
+    /// or learn from it.
+    pub fn route_with_ledger(
+        &self,
+        goal: &Goal,
+        corpus: &Corpus,
+        top: usize,
+        ledger: Option<&Ledger>,
+    ) -> Vec<Reading> {
         let mut readings: Vec<Reading> = self
             .specialists
             .iter()
@@ -278,6 +294,14 @@ impl Swarm {
                 .partial_cmp(&a.relevance)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        if let Some(l) = ledger {
+            for r in &readings {
+                let rec = record_reading(&r.specialist, &goal.raw, &r.reading, r.relevance);
+                if let Err(e) = l.append(&rec) {
+                    eprintln!("warning: ledger append failed for {}: {e}", r.specialist);
+                }
+            }
+        }
         readings
     }
 

@@ -10,7 +10,7 @@
 //!   given a goal, return ranked candidate "homes".
 
 use anyhow::Result;
-use burrower_core::{parse_goal, rank, Corpus, Swarm};
+use burrower_core::{parse_goal, rank, Corpus, Ledger, Swarm};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -51,10 +51,14 @@ enum Cmd {
     },
     /// Route a goal through the specialist swarm.
     ///
-    /// Each specialist (Algebraist, OrderTheorist, Combinatorialist, …)
-    /// scores its relevance, gives a one-line reading of the goal in
-    /// its vocabulary, and (if relevant) returns ranked candidate homes
-    /// from its corpus subset.
+    /// Each specialist scores its relevance, gives a one-line reading
+    /// of the goal in its vocabulary, and (if relevant) returns ranked
+    /// candidate homes from its corpus subset. The synthesis layer
+    /// then identifies boundary objects and consensus homes.
+    ///
+    /// If `--ledger` is supplied, every reading is appended to the
+    /// Burrow Ledger — the shared knowledge layer the swarm uses to
+    /// build on and learn from prior work.
     Swarm {
         /// The proof goal as a string. Quote it.
         goal: String,
@@ -67,12 +71,140 @@ enum Cmd {
         /// Output format: `text` (default) or `json`.
         #[arg(long, default_value = "text")]
         format: String,
+        /// Optional path to the Burrow Ledger for auto-recording.
+        #[arg(long)]
+        ledger: Option<PathBuf>,
     },
+    /// Burrow Ledger inspection.
+    Ledger {
+        #[command(subcommand)]
+        sub: LedgerCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum LedgerCmd {
+    /// Show the most-recent N records.
+    Recent {
+        #[arg(long)]
+        path: PathBuf,
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
+    /// Records authored by a specialist.
+    BySpecialist {
+        #[arg(long)]
+        path: PathBuf,
+        name: String,
+    },
+    /// Anti-patterns visible to a specialist (i.e. things to avoid).
+    AntiPatterns {
+        #[arg(long)]
+        path: PathBuf,
+        /// Specialist requesting the visibility view.
+        #[arg(long)]
+        for_specialist: String,
+    },
+    /// Aggregate digest: counts per specialist, top patterns.
+    Digest {
+        #[arg(long)]
+        path: PathBuf,
+    },
+}
+
+fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
+    use std::collections::BTreeMap;
+    match cmd {
+        LedgerCmd::Recent { path, limit } => {
+            let l = Ledger::open(&path)?;
+            let recs = l.recent(limit)?;
+            println!("Burrow Ledger — last {} record(s) (newest first):\n", recs.len());
+            for r in recs {
+                println!("[{}] {} · {}", r.timestamp, r.specialist, r.goal_hash);
+                println!("    goal: {}", r.goal_excerpt);
+                if let Some(a) = &r.approach {
+                    println!("    approach: {}", a.description);
+                }
+                if let Some(rs) = &r.result {
+                    println!("    result [{}]: {}", rs.status, rs.explanation);
+                }
+                if let Some(le) = &r.learning {
+                    println!(
+                        "    learning [{}]: {} ⇒ {}",
+                        le.pattern_kind, le.pattern_extracted, le.generalisation
+                    );
+                }
+                println!();
+            }
+        }
+        LedgerCmd::BySpecialist { path, name } => {
+            let l = Ledger::open(&path)?;
+            let recs = l.by_specialist(&name)?;
+            println!("Records by {}: {}", name, recs.len());
+            for r in recs {
+                println!(
+                    "  [{}] {} — {}",
+                    r.timestamp,
+                    r.goal_hash,
+                    r.goal_excerpt.chars().take(80).collect::<String>()
+                );
+            }
+        }
+        LedgerCmd::AntiPatterns { path, for_specialist } => {
+            let l = Ledger::open(&path)?;
+            let antis = l.anti_patterns_for(&for_specialist)?;
+            println!(
+                "Anti-patterns visible to {}: {}",
+                for_specialist,
+                antis.len()
+            );
+            for a in antis {
+                println!(
+                    "  · {} — {}",
+                    a.pattern_extracted,
+                    a.generalisation
+                );
+            }
+        }
+        LedgerCmd::Digest { path } => {
+            let l = Ledger::open(&path)?;
+            let recs = l.read_all()?;
+            let mut by_spec: BTreeMap<String, usize> = BTreeMap::new();
+            let mut by_status: BTreeMap<String, usize> = BTreeMap::new();
+            let mut patterns: BTreeMap<String, usize> = BTreeMap::new();
+            for r in &recs {
+                *by_spec.entry(r.specialist.clone()).or_insert(0) += 1;
+                if let Some(rs) = &r.result {
+                    *by_status.entry(rs.status.clone()).or_insert(0) += 1;
+                }
+                if let Some(le) = &r.learning {
+                    *patterns.entry(le.pattern_extracted.clone()).or_insert(0) += 1;
+                }
+            }
+            println!("Burrow Ledger digest — {} record(s):\n", recs.len());
+            println!("By specialist:");
+            for (k, v) in &by_spec {
+                println!("  {:>20}  {}", k, v);
+            }
+            println!("\nBy result status:");
+            for (k, v) in &by_status {
+                println!("  {:>20}  {}", k, v);
+            }
+            println!("\nTop patterns (cited):");
+            let mut sorted: Vec<_> = patterns.iter().collect();
+            sorted.sort_by(|a, b| b.1.cmp(a.1));
+            for (k, v) in sorted.iter().take(10) {
+                println!("  {:>4}× {}", v, k);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
+        Cmd::Ledger { sub } => return handle_ledger(sub),
         Cmd::Index { root, output } => {
             let corpus = Corpus::index(&root)?;
             corpus.save(&output)?;
@@ -88,11 +220,21 @@ fn main() -> Result<()> {
             index,
             top,
             format,
+            ledger,
         } => {
             let corpus = Corpus::load(&index)?;
             let parsed = parse_goal(&goal);
             let swarm = Swarm::new();
-            let readings = swarm.route(&parsed, &corpus, top);
+            let ledger_handle = ledger
+                .as_ref()
+                .map(|p| Ledger::open(p))
+                .transpose()?;
+            let readings = swarm.route_with_ledger(
+                &parsed,
+                &corpus,
+                top,
+                ledger_handle.as_ref(),
+            );
             match format.as_str() {
                 "json" => {
                     println!("{}", serde_json::to_string_pretty(&readings)?);

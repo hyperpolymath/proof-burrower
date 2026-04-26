@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Agent DSL: 007 → Burrower Specialist
+:toc: left
+:sectnums:
+
+How **007** ("agents that make agents") becomes the language for defining
+Burrower's specialists. This document is the integration plan; the
+compiler is not yet implemented.
+
+== Why 007 for agent definitions?
+
+Hardcoding specialists in Rust does not scale. Adding a new domain expert
+(NumberTheorist, Topologist, CategoryTheorist, ...) means patching
+`crates/burrower-core/src/specialist.rs`, recompiling, redeploying.
+
+007 is designed for exactly this: declaratively defining agents with
+typed capabilities, locales, protocols, and supervisors. A specialist
+expressed in 007 is:
+
+* Readable as documentation (you see the keywords, the corpora, the
+  protocol it speaks).
+* Compilable to a Specialist trait impl (the planned 007 → Rust
+  back-end emits Rust code).
+* Hot-loadable in the future (007's actor runtime can register new
+  specialists at runtime, without restarting the swarm).
+
+This is the dogfood: Burrower's specialists are themselves agents
+created by 007. 007 is the lever; Burrower is the application.
+
+== File layout
+
+[source]
+----
+proof-burrower/
+├── agents/
+│   ├── algebraist.007         <-- declarative spec
+│   ├── order_theorist.007
+│   ├── combinatorialist.007
+│   └── (future) topologist.007, category_theorist.007, ...
+├── crates/burrower-core/src/specialist.rs   <-- hardcoded Rust impls (today)
+└── crates/burrower-007/        <-- (planned) the 007 → Specialist compiler
+----
+
+== Required structure of an agent .007 file
+
+Each agent file has four required blocks:
+
+. **Domain config** — `@total data <name>_domain` with `name`,
+  `domain`, `ams_msc_top`, `description`.
+. **Recognisers** — `@total data <name>_recognisers` with `keywords`,
+  `min_domain_hits_for_corpus_filter`, `swarm_relevance_threshold`.
+. **Corpora** — `@total data <name>_corpora` with `preferred` and
+  `local` library lists.
+. **Agent declaration** — `agent <Name>(...) implements
+  BurrowerSwarm.Specialist on locale local { control { on receive(g:
+  Goal) { ... } } }`.
+
+The standard `BurrowerSwarm` session protocol (see any of the seed
+files) declares the contract specialists must obey: `Coordinator` sends
+a `Goal`; the specialist branches on its own relevance into `Reading`
+(when engaged) or `Bystander` (when below threshold); engaged
+specialists also `Append` to the `Ledger`.
+
+== Compilation contract (planned)
+
+The `crates/burrower-007` crate will:
+
+. Parse `agents/*.007` using the existing 007 parser (from
+  `/var/mnt/eclipse/repos/007-lang`).
+. Validate that each file declares all four required blocks and the
+  `BurrowerSwarm.Specialist` interface.
+. Emit a Rust struct + `impl Specialist` per file:
++
+[source,rust]
+----
+pub struct Algebraist;
+impl Specialist for Algebraist {
+    fn name(&self)     -> &'static str         { "Algebraist" }
+    fn domain(&self)   -> &'static str         { "Algebra" }
+    fn keywords(&self) -> &'static [&'static str] { &[/* from 007 file */] }
+    // default impls of read/relevance/filter/locate/read_goal use keywords()
+}
+----
+. Generate a registration glue file:
++
+[source,rust]
+----
+pub fn register_all_007_specialists(swarm: &mut Swarm) {
+    swarm.add(Box::new(Algebraist));
+    swarm.add(Box::new(OrderTheorist));
+    swarm.add(Box::new(Combinatorialist));
+    // ... regenerated whenever agents/*.007 changes
+}
+----
+
+== What 007 buys us beyond declarations
+
+The 007 features that aren't strictly needed for a stateless ranker
+but become essential as the swarm grows:
+
+* **Capabilities (`Cap[...]`)** — fine-grained authority. A specialist
+  declared without `append_ledger` cannot pollute the ledger; one
+  without `score_relevance` cannot self-elect.
+* **Locales** — specialists can run on remote nodes for heavy work
+  (e.g. a NumberTheorist that needs PARI/GP).
+* **Protocols** — the `BurrowerSwarm` session protocol enforces typed
+  message exchange; the compiler can verify protocol conformance.
+* **Supervisors** — fault-tolerant restart policies for crashing
+  specialists (e.g. a flaky external prover).
+* **Linear handles** — capability tokens that must be consumed,
+  preventing accidental specialist resurrection.
+
+== Living roadmap
+
+[cols="1,3,1"]
+|===
+|Stage |Description |Status
+
+|S1 — Spec
+|Each seed specialist has an `agents/*.007` file alongside its
+ hardcoded Rust impl. The .007 file is the declarative source of
+ truth; the .rs file is the manually-maintained mirror.
+|✓ done
+
+|S2 — Compiler skeleton
+|Build `crates/burrower-007` that parses .007 files (via 007-lang
+ parser as a dependency) and emits a JSON descriptor per agent.
+|planned
+
+|S3 — Codegen
+|`burrower-007` emits Rust source from the JSON descriptor; build
+ script regenerates on every change. .rs file becomes derived.
+|planned
+
+|S4 — Hot-load
+|At runtime, swarm watches `agents/` and reloads specialists when
+ .007 files change. Requires Wasm sandboxing for safety.
+|planned
+
+|S5 — In-007 runtime
+|Specialist `control` blocks execute via the 007 actor runtime
+ directly (no codegen to Rust). 007 becomes the execution
+ substrate, not just the declaration substrate.
+|future
+|===
+
+== Until S2 lands
+
+Treat the .007 files as source-of-truth specifications. When a .007
+file's `keywords`, `corpora`, or thresholds change, the corresponding
+Rust impl in `specialist.rs` must be updated to match. A simple drift
+check (planned: `just check-007-drift`) will compare the two and warn
+on divergence.

@@ -1,0 +1,83 @@
+-- SPDX-License-Identifier: PMPL-1.0-or-later
+-- OrderTheorist — Burrower seed specialist for order/lattice structure.
+--
+-- Recognises ≤, sup, inf, lattices, complete lattices, monotone
+-- functions, fixpoints, well-foundedness, chains. Routed to whenever
+-- a goal mentions ordering predicates or lattice operations.
+
+@total data order_domain = {
+  name: "OrderTheorist",
+  domain: "Order Theory",
+  ams_msc_top: "06-99",
+  description: "Recognises order-theoretic structure (lattices, monotonicity, fixpoints, well-foundedness)"
+}
+
+@total data order_recognisers = {
+  keywords: [
+    "le", "leq", "lt", "ge", "geq", "gt", "subseteq", "subset",
+    "linorder", "preorder", "order_bot", "order_top",
+    "lattice", "complete_lattice", "sup", "inf",
+    "monotone", "mono", "antitone", "cofinal",
+    "fixpoint", "lfp", "gfp", "least", "greatest",
+    "well_founded", "well_order", "chain", "directed",
+    "max", "min", "supremum", "infimum",
+    "absorb", "idempotent"
+  ],
+  min_domain_hits_for_corpus_filter: 2,
+  swarm_relevance_threshold: 0.02
+}
+
+@total data order_corpora = {
+  preferred: [
+    "HOL-Lattice",
+    "HOL-Order_Theory",
+    "mathlib4/Order",
+    "mathcomp/order"
+  ],
+  local: [
+    "verification-ecosystem/tropical-resource-typing"
+  ]
+}
+
+session protocol BurrowerSwarm {
+  Coordinator -> Specialist: Goal(text: String, hash: String)
+  branch by Specialist {
+    | engaged given { relevance >= threshold } -> {
+        Specialist -> Coordinator: Reading(relevance: Float, reading: String, homes: List[Home])
+        Specialist -> Ledger: Append(record: LedgerRecord)
+    }
+    | bystander given { relevance < threshold } -> {
+        Specialist -> Coordinator: Bystander(relevance: Float, reading: String)
+    }
+  }
+}
+
+agent OrderTheorist(caps: Cap[read_corpus, append_ledger, score_relevance])
+  implements BurrowerSwarm.Specialist
+  on locale local
+{
+  control {
+    on receive(g: Goal) {
+      let rel = score_relevance(g.text, order_recognisers.keywords)
+      let reading = read_goal(g.text, order_recognisers.keywords)
+
+      if rel >= order_recognisers.swarm_relevance_threshold {
+        let domain_corpus = filter_corpus(
+          order_corpora.preferred ++ order_corpora.local,
+          order_recognisers.keywords,
+          order_recognisers.min_domain_hits_for_corpus_filter
+        )
+        let homes = rank(g.text, domain_corpus, top: 5)
+        send(coordinator, Reading(rel, reading, homes))
+        send(ledger, Append(record_reading(
+          specialist: order_domain.name,
+          goal: g.text,
+          reading: reading,
+          relevance: rel
+        )))
+      } else {
+        send(coordinator, Bystander(rel, reading))
+      }
+    }
+  }
+}

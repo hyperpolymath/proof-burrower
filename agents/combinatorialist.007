@@ -1,0 +1,83 @@
+-- SPDX-License-Identifier: PMPL-1.0-or-later
+-- Combinatorialist — Burrower seed specialist for finite/discrete structure.
+--
+-- Recognises finite sets, sums over finite sets, lists, sequences,
+-- permutations, walks, paths, cycles, graphs, trees, and combinatorial
+-- identities. Routed to whenever a goal mentions discrete/finite
+-- structure.
+
+@total data combinatorics_domain = {
+  name: "Combinatorialist",
+  domain: "Combinatorics",
+  ams_msc_top: "05-99",
+  description: "Recognises finite/discrete structure (sums, walks, permutations, graphs)"
+}
+
+@total data combinatorics_recognisers = {
+  keywords: [
+    "finite", "card", "sum", "prod", "card_eq",
+    "set", "list", "seq", "permutation", "perm",
+    "walk", "walks", "path", "path_weight", "cycle",
+    "graph", "vertex", "edge", "tree", "forest",
+    "n_choose_k", "binomial", "factorial",
+    "induction", "induct", "base", "step",
+    "sigma", "union", "insert", "filter"
+  ],
+  min_domain_hits_for_corpus_filter: 2,
+  swarm_relevance_threshold: 0.02
+}
+
+@total data combinatorics_corpora = {
+  preferred: [
+    "HOL-Combinatorics",
+    "HOL-Set_Theory",
+    "mathlib4/Combinatorics",
+    "mathcomp/finset"
+  ],
+  local: [
+    "verification-ecosystem/tropical-resource-typing"
+  ]
+}
+
+session protocol BurrowerSwarm {
+  Coordinator -> Specialist: Goal(text: String, hash: String)
+  branch by Specialist {
+    | engaged given { relevance >= threshold } -> {
+        Specialist -> Coordinator: Reading(relevance: Float, reading: String, homes: List[Home])
+        Specialist -> Ledger: Append(record: LedgerRecord)
+    }
+    | bystander given { relevance < threshold } -> {
+        Specialist -> Coordinator: Bystander(relevance: Float, reading: String)
+    }
+  }
+}
+
+agent Combinatorialist(caps: Cap[read_corpus, append_ledger, score_relevance])
+  implements BurrowerSwarm.Specialist
+  on locale local
+{
+  control {
+    on receive(g: Goal) {
+      let rel = score_relevance(g.text, combinatorics_recognisers.keywords)
+      let reading = read_goal(g.text, combinatorics_recognisers.keywords)
+
+      if rel >= combinatorics_recognisers.swarm_relevance_threshold {
+        let domain_corpus = filter_corpus(
+          combinatorics_corpora.preferred ++ combinatorics_corpora.local,
+          combinatorics_recognisers.keywords,
+          combinatorics_recognisers.min_domain_hits_for_corpus_filter
+        )
+        let homes = rank(g.text, domain_corpus, top: 5)
+        send(coordinator, Reading(rel, reading, homes))
+        send(ledger, Append(record_reading(
+          specialist: combinatorics_domain.name,
+          goal: g.text,
+          reading: reading,
+          relevance: rel
+        )))
+      } else {
+        send(coordinator, Bystander(rel, reading))
+      }
+    }
+  }
+}

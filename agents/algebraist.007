@@ -1,0 +1,151 @@
+-- SPDX-License-Identifier: PMPL-1.0-or-later
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+--
+-- Algebraist — Burrower seed specialist for algebraic structure.
+--
+-- Recognises groups, rings, fields, semirings, monoids, ideals,
+-- modules, vector spaces, homomorphisms, isomorphisms, kernels,
+-- images, and tropical algebra. Routed to whenever a goal mentions
+-- algebraic typeclasses or operations.
+--
+-- This file is the **declarative spec**. The 007→Specialist
+-- compiler (planned, not yet implemented) will turn this into a
+-- registered Specialist instance at swarm load time.
+--
+-- Until the compiler exists, the matching hardcoded Rust impl
+-- lives at `crates/burrower-core/src/specialist.rs` (Algebraist).
+
+-- ============================================================
+-- 1. DOMAIN CONFIG
+-- ============================================================
+
+@total data algebra_domain = {
+  name: "Algebraist",
+  domain: "Algebra",
+  ams_msc_top: "08-99",  -- General algebra
+  description: "Recognises algebraic structure (groups, rings, semirings, ...)"
+}
+
+@total data algebra_recognisers = {
+  -- Domain keywords. A goal matches if any of these appears as an
+  -- exact token, prefix (kw_), or substring of a goal token.
+  keywords: [
+    "group", "ring", "field", "semiring", "monoid", "semigroup",
+    "ideal", "module", "vector", "homomorphism", "isomorphism",
+    "kernel", "image", "quotient", "polynomial", "matrix",
+    "abelian", "commutative", "associative", "distributive",
+    "identity", "inverse", "comm_monoid", "comm_semiring",
+    -- Tropical algebra (project-specific)
+    "tropical", "trop", "tropm", "plus", "mult", "add", "mul",
+    "zero", "one", "neginf", "fin"
+  ],
+
+  min_domain_hits_for_corpus_filter: 2,
+  swarm_relevance_threshold: 0.02
+}
+
+@total data algebra_corpora = {
+  -- Library subsets the Algebraist will index from when present.
+  -- Path resolution is best-effort; missing libraries are skipped.
+  preferred: [
+    "HOL-Algebra",
+    "HOL-Computational_Algebra",
+    "mathlib4/Algebra",
+    "mathcomp/algebra"
+  ],
+  -- Always-included local corpora.
+  local: [
+    "verification-ecosystem/tropical-resource-typing"
+  ]
+}
+
+-- ============================================================
+-- 2. PROTOCOLS — the swarm contract
+-- ============================================================
+
+session protocol BurrowerSwarm {
+  Coordinator -> Specialist: Goal(text: String, hash: String)
+
+  branch by Specialist {
+    | engaged given { relevance >= threshold } -> {
+        Specialist -> Coordinator: Reading(
+          relevance: Float,
+          reading: String,
+          homes: List[Home]
+        )
+        -- Append-only ledger record (side effect, not message).
+        Specialist -> Ledger: Append(record: LedgerRecord)
+    }
+    | bystander given { relevance < threshold } -> {
+        Specialist -> Coordinator: Bystander(
+          relevance: Float,
+          reading: String   -- Still useful as negative signal.
+        )
+    }
+  }
+}
+
+-- ============================================================
+-- 3. AGENT
+-- ============================================================
+
+agent Algebraist(caps: Cap[read_corpus, append_ledger, score_relevance])
+  implements BurrowerSwarm.Specialist
+  on locale local
+{
+  @total data state = {
+    keywords_loaded: false + false,
+    corpus_size: 0 + 0
+  }
+
+  control {
+    on receive(g: Goal) {
+      let rel = score_relevance(g.text, algebra_recognisers.keywords)
+      let reading = read_goal(g.text, algebra_recognisers.keywords)
+
+      if rel >= algebra_recognisers.swarm_relevance_threshold {
+        let domain_corpus = filter_corpus(
+          algebra_corpora.preferred ++ algebra_corpora.local,
+          algebra_recognisers.keywords,
+          algebra_recognisers.min_domain_hits_for_corpus_filter
+        )
+        let homes = rank(g.text, domain_corpus, top: 5)
+
+        send(coordinator, Reading(rel, reading, homes))
+        send(ledger, Append(record_reading(
+          specialist: algebra_domain.name,
+          goal: g.text,
+          reading: reading,
+          relevance: rel
+        )))
+      } else {
+        send(coordinator, Bystander(rel, reading))
+      }
+    }
+  }
+}
+
+-- ============================================================
+-- 4. NOTES FOR THE 007 COMPILER (when it exists)
+-- ============================================================
+
+-- The compiler should:
+-- (a) Read the @total data blocks and emit a Rust struct +
+--     associated `impl Specialist`.
+-- (b) Generate the keyword vector from `algebra_recognisers.keywords`.
+-- (c) Wire the corpus filter using the constants in this file.
+-- (d) Register the resulting Specialist with Swarm at load time.
+--
+-- The Burrower-side trait being implemented:
+--   pub trait Specialist {
+--     fn name(&self) -> &'static str;
+--     fn domain(&self) -> &'static str;
+--     fn keywords(&self) -> &'static [&'static str];
+--     fn read(&self, goal: &Goal) -> String;
+--     fn relevance(&self, goal: &Goal) -> f64;
+--     fn locate(&self, goal: &Goal, corpus: &Corpus, top: usize) -> Vec<Home>;
+--     fn filter(&self, corpus: &Corpus) -> Corpus;
+--     fn read_goal(&self, goal: &Goal, corpus: &Corpus, top: usize) -> Reading;
+--   }
+--
+-- See `docs/AGENT-DSL.adoc` for the full integration plan.
