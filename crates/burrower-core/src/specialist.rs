@@ -232,6 +232,36 @@ impl Specialist for Algebraist {
                     script: "by (simp add: field_simps)".to_string(),
                     description: "Field/ring arithmetic simplification.".to_string(),
                 },
+                TacticTemplate {
+                    name: "ac-simps".to_string(),
+                    script: "by (simp add: ac_simps)".to_string(),
+                    description: "Associativity + commutativity rewriting — replaces looping metis chains on +/* monoids.".to_string(),
+                },
+                TacticTemplate {
+                    name: "semiring-distrib".to_string(),
+                    script: "by (simp add: distrib_left distrib_right)".to_string(),
+                    description: "Both-sided distributivity for semiring goals.".to_string(),
+                },
+                TacticTemplate {
+                    name: "metis-empty".to_string(),
+                    script: "by metis".to_string(),
+                    description: "Equational reasoning without hints — succeeds where simp loses orientation.".to_string(),
+                },
+                TacticTemplate {
+                    name: "linarith-after-simp".to_string(),
+                    script: "by (simp; linarith)".to_string(),
+                    description: "Simplifier reduction followed by linear arithmetic — Isabelle 2025-1 omega→linarith drift fallback.".to_string(),
+                },
+                TacticTemplate {
+                    name: "comm-monoid-add".to_string(),
+                    script: "by (simp add: ac_simps add.commute)".to_string(),
+                    description: "Commutative-monoid rewriting (add.commute is the post-rebrand name).".to_string(),
+                },
+                TacticTemplate {
+                    name: "transfer-then-simp".to_string(),
+                    script: "by (transfer, simp add: algebra_simps)".to_string(),
+                    description: "Transfer to representation type then simplify — useful for tropical/quotient goals.".to_string(),
+                },
             ],
         }
     }
@@ -265,7 +295,7 @@ impl Specialist for OrderTheorist {
                 TacticTemplate {
                     name: "order-trans".to_string(),
                     script: "by (rule order_trans)".to_string(),
-                    description: "Transitivity of ≤.".to_string(),
+                    description: "Transitivity of ≤ (Isabelle 2025-1 canonical name; le_trans was deprecated).".to_string(),
                 },
                 TacticTemplate {
                     name: "order-auto".to_string(),
@@ -276,6 +306,46 @@ impl Specialist for OrderTheorist {
                     name: "subset-decompose".to_string(),
                     script: "by (auto simp: subset_iff)".to_string(),
                     description: "Element-wise subset reasoning.".to_string(),
+                },
+                TacticTemplate {
+                    name: "linarith".to_string(),
+                    script: "by linarith".to_string(),
+                    description: "Linear arithmetic decision procedure — replaces omega in Isabelle 2025-1.".to_string(),
+                },
+                TacticTemplate {
+                    name: "sum-mono".to_string(),
+                    script: "by (rule sum_mono) auto".to_string(),
+                    description: "Pointwise monotonicity of sums (Kleene 237 pattern).".to_string(),
+                },
+                TacticTemplate {
+                    name: "monoI-then-auto".to_string(),
+                    script: "by (intro monoI) auto".to_string(),
+                    description: "Introduce monotonicity then resolve elementwise.".to_string(),
+                },
+                TacticTemplate {
+                    name: "force".to_string(),
+                    script: "by force".to_string(),
+                    description: "Stronger than blast for goals needing list/sequence decomposition (Kleene 403 pattern: [v] vs v#[]).".to_string(),
+                },
+                TacticTemplate {
+                    name: "meson-order".to_string(),
+                    script: "by (meson order_trans)".to_string(),
+                    description: "Meson with transitive chain — succeeds on multi-hop ≤ goals where blast loops.".to_string(),
+                },
+                TacticTemplate {
+                    name: "le-supI".to_string(),
+                    script: "by (auto intro: le_supI1 le_supI2)".to_string(),
+                    description: "Sup introduction on either side — for goals against a join.".to_string(),
+                },
+                TacticTemplate {
+                    name: "subset-trans".to_string(),
+                    script: "by (meson subset_trans)".to_string(),
+                    description: "Subset transitivity chain — replaces blast loops on nested ⊆ obligations.".to_string(),
+                },
+                TacticTemplate {
+                    name: "order-trans-OF".to_string(),
+                    script: "by (rule order_trans[OF assms]) simp".to_string(),
+                    description: "Apply transitivity with the assumption pre-substituted — often the missing instantiation.".to_string(),
                 },
             ],
         }
@@ -320,6 +390,51 @@ impl Specialist for Combinatorialist {
                     name: "induction-list".to_string(),
                     script: "by (induction xs) auto".to_string(),
                     description: "Structural induction on a list named xs.".to_string(),
+                },
+                TacticTemplate {
+                    name: "induction-arbitrary".to_string(),
+                    script: "by (induction k arbitrary: j) auto".to_string(),
+                    description: "Generalised induction (Matrices_Full helper pattern: arbitrary: j keeps the IH usable across positions).".to_string(),
+                },
+                TacticTemplate {
+                    name: "cases-list".to_string(),
+                    script: "by (cases w; auto)".to_string(),
+                    description: "Case-split on list constructors then auto — the list-non-empty pattern.".to_string(),
+                },
+                TacticTemplate {
+                    name: "sum-insert".to_string(),
+                    script: "by (subst sum.insert) auto".to_string(),
+                    description: "Step a sum at an insert (replaces sum.atLeastAtMost_Suc, deprecated in 2025-1).".to_string(),
+                },
+                TacticTemplate {
+                    name: "sum-distrib".to_string(),
+                    script: "by (simp add: sum.distrib)".to_string(),
+                    description: "Sum distributivity (replaces sum_add_distrib, renamed in 2025-1).".to_string(),
+                },
+                TacticTemplate {
+                    name: "unfolding-walks-def".to_string(),
+                    script: "unfolding walks_def by simp".to_string(),
+                    description: "Unfold walks_def then simp — beats `proof (intro conjI)` because walks_def yields a Collect set.".to_string(),
+                },
+                TacticTemplate {
+                    name: "metis-append".to_string(),
+                    script: "by (metis append_Cons append_Nil)".to_string(),
+                    description: "List concatenation lemmas — closes obtain-decompositions of [v]@ys vs v#ys (Kleene 403 pattern).".to_string(),
+                },
+                TacticTemplate {
+                    name: "force".to_string(),
+                    script: "by force".to_string(),
+                    description: "Stronger than blast for list-decomposition obtain goals.".to_string(),
+                },
+                TacticTemplate {
+                    name: "permutes-in-image".to_string(),
+                    script: "by (rule permutes_in_image[OF assms])".to_string(),
+                    description: "Permutations as image-preserving — closes Det 153/207 type-class regression goals.".to_string(),
+                },
+                TacticTemplate {
+                    name: "transposition-2x2".to_string(),
+                    script: "by (cases a; cases b) (auto simp: Transposition.transpose)".to_string(),
+                    description: "2x2 case split using Transposition.transpose (Fun.swap is input-only in 2025-1).".to_string(),
                 },
             ],
         }
@@ -541,6 +656,55 @@ mod tests {
         let g = parse_goal("lemma foo: \"finite (walks n k i j)\"");
         let s = Combinatorialist;
         assert!(s.relevance(&g) > 0.0, "should engage on walks + finite");
+    }
+
+    #[test]
+    fn playbooks_expanded_2026_04_26() {
+        // After the swarm-dogfood session against Tropical_Semirings, each
+        // playbook was expanded with proof-repair patterns observed in real
+        // failure sites (cycle-excise, Det 153/207, Kleene 403, etc.) plus
+        // Isabelle 2025-1 drift fixes (omega→linarith, sum.atLeastAtMost_Suc
+        // deprecation, Fun.swap input-only). Lock in the new minimums so
+        // future shrink-regressions are caught.
+        assert!(Algebraist.playbook().tactics.len() >= 10,
+            "Algebraist playbook should have ≥10 tactics post-2026-04-26 expansion");
+        assert!(OrderTheorist.playbook().tactics.len() >= 12,
+            "OrderTheorist playbook should have ≥12 tactics post-2026-04-26 expansion");
+        assert!(Combinatorialist.playbook().tactics.len() >= 12,
+            "Combinatorialist playbook should have ≥12 tactics post-2026-04-26 expansion");
+    }
+
+    #[test]
+    fn combinatorialist_carries_session_repair_patterns() {
+        // The Tropical_Semirings session-close added these specific tactics
+        // because real failures pointed at them. They must stay named-and-
+        // findable so a future ledger entry can cite them by name.
+        let names: Vec<String> = Combinatorialist.playbook().tactics
+            .iter().map(|t| t.name.clone()).collect();
+        assert!(names.iter().any(|n| n == "permutes-in-image"),
+            "Combinatorialist must carry the Det 153/207 fix");
+        assert!(names.iter().any(|n| n == "metis-append"),
+            "Combinatorialist must carry the Kleene 403 list-decomp fix");
+        assert!(names.iter().any(|n| n == "induction-arbitrary"),
+            "Combinatorialist must carry the Matrices_Full generalised-induction pattern");
+    }
+
+    #[test]
+    fn order_theorist_carries_2025_drift_fixes() {
+        let names: Vec<String> = OrderTheorist.playbook().tactics
+            .iter().map(|t| t.name.clone()).collect();
+        assert!(names.iter().any(|n| n == "linarith"),
+            "OrderTheorist must carry linarith (omega→linarith drift in 2025-1)");
+        assert!(names.iter().any(|n| n == "force"),
+            "OrderTheorist must carry force (Kleene 403 list-decomp fallback)");
+    }
+
+    #[test]
+    fn algebraist_carries_ac_simps_replacement() {
+        let names: Vec<String> = Algebraist.playbook().tactics
+            .iter().map(|t| t.name.clone()).collect();
+        assert!(names.iter().any(|n| n == "ac-simps"),
+            "Algebraist must carry ac-simps (replaces looping metis chains)");
     }
 
     #[test]
