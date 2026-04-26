@@ -32,6 +32,8 @@ pub mod ranking;
 pub mod specialist;
 pub mod ledger;
 pub mod attempt;
+pub mod serve;
+pub mod oracle;
 
 pub use goal::{parse_goal, Goal};
 pub use corpus::{Corpus, IndexedLemma, LibraryKind};

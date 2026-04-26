@@ -65,6 +65,17 @@ pub struct ProverConfig {
     pub timeout_secs: u32,
     /// Workdir for probe files. Defaults to `/tmp` if unset.
     pub workdir: Option<PathBuf>,
+    /// Project root for echidna's EI-1 `--project-root` flag (2026-04-26).
+    /// When set, every probe is dispatched as
+    /// `echidna prove --project-root <p> ...`, letting the probe's
+    /// theory imports resolve against the project's existing ROOT.
+    /// Without this, probes can only `imports Main`.
+    pub project_root: Option<PathBuf>,
+    /// Sandbox mode forwarded to echidna's `--sandbox` flag
+    /// (safe-learning b, 2026-04-26). One of "none" | "bwrap" | "podman".
+    /// Default "none" preserves backwards compatibility; recommend
+    /// "bwrap" when running specialist playbooks against unverified goals.
+    pub sandbox: String,
 }
 
 impl Default for ProverConfig {
@@ -73,6 +84,8 @@ impl Default for ProverConfig {
             echidna_path: PathBuf::from("echidna"),
             timeout_secs: 60,
             workdir: None,
+            project_root: None,
+            sandbox: "none".to_string(),
         }
     }
 }
@@ -207,14 +220,24 @@ pub fn run_probe(
     }
 
     let start = Instant::now();
-    let output = Command::new(&config.echidna_path)
-        .arg("prove")
+    let mut cmd = Command::new(&config.echidna_path);
+    cmd.arg("prove")
         .arg(&probe_path)
         .arg("--prover")
         .arg("Isabelle")
         .arg("-t")
-        .arg(config.timeout_secs.to_string())
-        .output();
+        .arg(config.timeout_secs.to_string());
+    // EI-1: forward the project root so probes importing project-
+    // specific theories (Tropical_v2, walks_def, ...) resolve.
+    if let Some(p) = config.project_root.as_ref() {
+        cmd.arg("--project-root").arg(p);
+    }
+    // safe-learning b: forward the sandbox mode. echidna defaults to
+    // "none" so an unset value is the same as the legacy path.
+    if config.sandbox != "none" && !config.sandbox.is_empty() {
+        cmd.arg("--sandbox").arg(&config.sandbox);
+    }
+    let output = cmd.output();
     let elapsed = start.elapsed();
     let elapsed_ms = elapsed.as_millis() as u64;
 
@@ -222,36 +245,60 @@ pub fn run_probe(
         Ok(o) => {
             let stdout = String::from_utf8_lossy(&o.stdout);
             let stderr = String::from_utf8_lossy(&o.stderr);
-            if stdout.contains("Proof verified successfully") {
-                AttemptResult::Succeeded {
-                    duration_ms: elapsed_ms,
-                }
-            } else if stdout.contains("Proof verification failed")
-                || stderr.contains("FAILED")
-                || stderr.contains("error")
-            {
-                let err_excerpt: String = stdout
-                    .lines()
-                    .chain(stderr.lines())
+
+            // Discovered 2026-04-26 during the swarm-dogfood session:
+            // echidna's "Proof verified successfully" / "Proof verification
+            // failed" lines come from `OutputFormatter`, which writes to
+            // STDERR, not stdout. The previous stdout-only check made every
+            // attempt look "inconclusive" and demoted real failures to
+            // generic-failure anti-patterns. We now scan BOTH streams and
+            // also fall back on the exit code so a non-zero exit with no
+            // standard marker still becomes Failed (not Inconclusive).
+            let combined_lines: Vec<&str> =
+                stdout.lines().chain(stderr.lines()).collect();
+            let says_success = combined_lines
+                .iter()
+                .any(|l| l.contains("Proof verified successfully") || l.contains("✓ Proof verified"));
+            let says_failure = combined_lines.iter().any(|l| {
+                l.contains("Proof verification failed")
+                    || l.contains("✗ Proof verification failed")
+                    || l.contains("FAILED")
+            });
+            let exit_failed = !o.status.success();
+
+            if says_success {
+                AttemptResult::Succeeded { duration_ms: elapsed_ms }
+            } else if says_failure || exit_failed {
+                let err_excerpt: String = combined_lines
+                    .iter()
                     .filter(|l| {
-                        l.contains("***") || l.contains("Failed") || l.contains("error")
+                        l.contains("***")
+                            || l.contains("Failed")
+                            || l.contains("error")
+                            || l.contains("Unable")
                     })
                     .take(3)
+                    .copied()
                     .collect::<Vec<_>>()
                     .join(" | ");
                 AttemptResult::Failed {
                     error: if err_excerpt.is_empty() {
-                        "non-success exit; no diagnostic captured".to_string()
+                        format!(
+                            "exit {} — no standard diagnostic captured",
+                            o.status.code().unwrap_or(-1)
+                        )
                     } else {
                         err_excerpt
                     },
                     duration_ms: elapsed_ms,
                 }
             } else {
-                // Inconclusive — treat as failed with raw context.
+                // Truly inconclusive — exit 0, no markers either way.
                 AttemptResult::Failed {
-                    error: format!("inconclusive output (first 200 chars): {}",
-                                   stdout.chars().take(200).collect::<String>()),
+                    error: format!(
+                        "inconclusive output (no success/failure marker, exit 0): {}",
+                        stdout.chars().take(200).collect::<String>()
+                    ),
                     duration_ms: elapsed_ms,
                 }
             }
@@ -433,6 +480,8 @@ mod tests {
             echidna_path: PathBuf::from("/nonexistent/echidna"),
             timeout_secs: 5,
             workdir: None,
+            project_root: None,
+            sandbox: "none".to_string(),
         };
         let r = run_probe(probe, &cfg, "missing_test.thy");
         assert!(matches!(r, AttemptResult::Skipped { .. }));

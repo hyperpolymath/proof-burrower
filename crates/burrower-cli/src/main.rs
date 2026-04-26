@@ -98,11 +98,43 @@ enum Cmd {
         /// Output format: `text` (default) or `json`.
         #[arg(long, default_value = "text")]
         format: String,
+        /// Project root for echidna's EI-1 `--project-root` flag.
+        /// Required for goals importing project-specific theories.
+        #[arg(long)]
+        project_root: Option<PathBuf>,
+        /// Sandbox mode for prover invocation (safe-learning b).
+        /// One of: none (default), bwrap, podman.
+        #[arg(long, default_value = "none")]
+        sandbox: String,
+        /// Path to tools/julia-oracle.jl (safe-learning c). When set,
+        /// the oracle runs BEFORE the specialist playbook; a
+        /// `disagree` or `fuzz-counter` verdict skips the proof.
+        #[arg(long)]
+        oracle: Option<PathBuf>,
+        /// Oracle descriptor (a2ml). Required when --oracle is set.
+        #[arg(long)]
+        oracle_descriptor: Option<PathBuf>,
+        /// Optional --project=<dir> for julia (path to repo with Manifest.toml).
+        #[arg(long)]
+        oracle_project: Option<PathBuf>,
+        /// Path to the julia binary (default: julia on PATH).
+        #[arg(long, default_value = "julia")]
+        oracle_julia: PathBuf,
     },
     /// Burrow Ledger inspection.
     Ledger {
         #[command(subcommand)]
         sub: LedgerCmd,
+    },
+    /// BI-1: expose the swarm over a Unix socket so echidna and
+    /// echidnabot can both consume `swarm` / `attempt` / `ledger`
+    /// commands without re-instantiating the corpus per call.
+    /// Protocol: line-delimited JSON {cmd, args} → {ok, result|error}.
+    /// See proof-burrower/docs/ECHIDNA-INTEGRATION.adoc §BI-1.
+    Serve {
+        /// Path to the Unix socket to bind. Defaults to /tmp/burrower.sock.
+        #[arg(long, default_value = "/tmp/burrower.sock")]
+        socket: PathBuf,
     },
 }
 
@@ -225,20 +257,63 @@ fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_attempt(
     goal: String,
     echidna: PathBuf,
     timeout: u32,
     ledger: PathBuf,
     format: String,
+    project_root: Option<PathBuf>,
+    sandbox: String,
+    oracle: Option<PathBuf>,
+    oracle_descriptor: Option<PathBuf>,
+    oracle_project: Option<PathBuf>,
+    oracle_julia: PathBuf,
 ) -> Result<()> {
     let parsed = parse_goal(&goal);
     let swarm = Swarm::new();
     let l = Ledger::open(&ledger)?;
+
+    // Safe-learning (c): if an oracle script + descriptor were
+    // supplied, run the oracle BEFORE specialist playbooks. A blocking
+    // verdict (disagree / fuzz-counter) means the lemma statement is
+    // suspect and we skip the playbook entirely. Either way the result
+    // is recorded in the ledger so the swarm learns the lemma's
+    // numerical character even when no proof is attempted.
+    if let (Some(script), Some(descriptor)) = (oracle.as_ref(), oracle_descriptor.as_ref()) {
+        let cfg = burrower_core::oracle::OracleConfig {
+            script: script.clone(),
+            descriptor: descriptor.clone(),
+            julia: oracle_julia.clone(),
+            project: oracle_project.clone(),
+        };
+        let verdict = burrower_core::oracle::run(&cfg);
+        burrower_core::oracle::record_to_ledger(&l, &parsed, &cfg, &verdict);
+        eprintln!("oracle: {:?}", verdict);
+        if verdict.blocks_attempt() {
+            eprintln!(
+                "oracle BLOCKS attempt (lemma statement suspect or oracle inconsistent); \
+                 skipping specialist playbooks. Ledger records this as `{}`.",
+                verdict.pattern_kind()
+            );
+            // Emit a json result-shape consistent with the normal path.
+            if format == "json" {
+                println!("{}", serde_json::json!({
+                    "blocked_by_oracle": true,
+                    "verdict_kind": verdict.pattern_kind(),
+                }));
+            }
+            return Ok(());
+        }
+    }
+
     let prover = ProverConfig {
         echidna_path: echidna,
         timeout_secs: timeout,
         workdir: None,
+        project_root,
+        sandbox,
     };
     let attempts = swarm.attempt_all(&parsed, &prover, Some(&l));
 
@@ -293,10 +368,19 @@ fn handle_attempt(
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Attempt { goal, echidna, timeout, ledger, format } => {
-            return handle_attempt(goal, echidna, timeout, ledger, format)
+        Cmd::Attempt {
+            goal, echidna, timeout, ledger, format,
+            project_root, sandbox,
+            oracle, oracle_descriptor, oracle_project, oracle_julia,
+        } => {
+            return handle_attempt(
+                goal, echidna, timeout, ledger, format,
+                project_root, sandbox,
+                oracle, oracle_descriptor, oracle_project, oracle_julia,
+            )
         }
         Cmd::Ledger { sub } => return handle_ledger(sub),
+        Cmd::Serve { socket } => return burrower_core::serve::run(socket),
         Cmd::Index { root, output } => {
             let corpus = Corpus::index(&root)?;
             corpus.save(&output)?;
