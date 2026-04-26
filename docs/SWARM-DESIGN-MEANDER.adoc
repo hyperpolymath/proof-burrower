@@ -1,0 +1,382 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burrower Swarm: Design Meander
+:toc: left
+:toc-title: Wandering through
+:sectnums:
+
+A meandering design exploration of Burrower-as-swarm. Written during
+the live build session 2026-04-26 — iterating on the user's challenge:
+*does this idea make sense, and what is its great form?*
+
+Updated as the design wanders. Not a spec. A thinking surface.
+
+---
+
+== Does the swarm idea make sense?
+
+Short answer: **yes, profoundly — and for non-obvious reasons.**
+
+=== Why "yes" is non-obvious
+
+It's tempting to dismiss the GCHQ-style swarm as "just N rankers in
+parallel." If that's all it is, it's not interesting — N parallel
+weak rankers gives a weakly-noisy ensemble, modest gains.
+
+That dismissal misses three structural facts:
+
+1. **Mathematical knowledge is genuinely siloed.** A topologist and an
+   algebraist read the same goal differently. "Open" means open-set
+   to a topologist, open-game to a game-semanticist, open-system to a
+   physicist. Token-based ranking treats them as identical. A
+   specialist encodes context that disambiguates.
+
+2. **It mirrors how mathematicians actually work.** When a new theorem
+   arrives at a math department, the right specialist is found and
+   asked. Burrower-as-swarm is that intuition externalised — and
+   automated, available 24/7 on every commit.
+
+3. **It composes with proof tactics.** Once a goal is routed to (say)
+   order theory, the relevant tactics (lattice fixpoints, well-founded
+   induction) are different from algebra tactics (group actions,
+   structure theorems). The HOME informs the PROOF STRATEGY. A swarm
+   that locates well prepares ECHIDNA to prove well.
+
+=== Where the analogy holds and where it stretches
+
+GCHQ has a Russia desk, a China desk, a signals desk. They share intel
+through structured products (assessments, briefings, indications and
+warnings). Each desk has its own analytic tradecraft.
+
+Mathematics has algebra, topology, logic, combinatorics. Specialists
+have their own tradecraft: tactics that work in their domain, lemma
+naming conventions, foundational assumptions, preferred libraries.
+
+The analogy holds for: domain expertise, structured intel sharing,
+desk-vs-desk collaboration on boundary objects.
+
+The analogy stretches at: GCHQ desks compete for resources and may
+withhold intel; math swarms must SHARE freely. GCHQ has secrecy
+tradecraft; math swarms must be radically transparent — every
+specialist's reasoning trace must be readable by every other.
+
+== Trial-and-error multiplication
+
+User-supplied refinement (2026-04-26): _"scalable swarms seems to me
+to give additional trial and error opportunities to us on top of that
+[transformations], so long as we can find a way to get them to
+orchestrate and share in a useful way their approaches."_
+
+This reframes the swarm from "parallel rankers" to **parallel
+explorers of the proof-strategy space**. Each specialist tries its
+domain-specific heuristic. Wins propagate. Losses inform.
+
+Concretely, the multiplication looks like:
+
+[cols="1,3,3"]
+|===
+|Specialist |What it tries |What it shares back
+
+|Algebraist
+|"This is a semiring monotonicity lemma. Try `add_mono` after
+ instantiating to a class instance."
+|"Approach failed: `tropical` is not in `ordered_ab_semigroup_add`.
+ Workaround: use `trop_add_le_iff` directly. Recorded as pattern
+ `tropical-not-ordered-class`."
+
+|OrderTheorist
+|"This is monotonicity in a complete lattice. Try `mono_setI` +
+ `complete_lattice_class.SUP_mono`."
+|"Approach succeeded for the *finite* case via `Sup_finite_mono`.
+ Recorded as pattern `finite-set-sup-monotonicity`."
+
+|Combinatorialist
+|"Walks of length k form a finite, decomposable family. Try
+ `sum.subset_diff` after unfolding `walks_def`."
+|"Worked. Recorded as pattern `walk-sum-decomposition`."
+|===
+
+The multiplication isn't 3x — it's exponential in the breadth of
+patterns the swarm collectively learns. Every recorded pattern
+becomes available to the next agent on the next goal.
+
+== The shared knowledge layer
+
+The user's critical insight: trial-and-error only multiplies if agents
+**share approaches, methods, and results in a useful way**.
+
+Without sharing, N agents are N independent guessers. With sharing,
+N agents become a research lab.
+
+=== Layer name candidates
+
+* **The Burrow Ledger** — append-only record of every approach tried,
+  by which agent, on which goal, with what outcome.
+* **The Commonplace Book** — historical metaphor: a shared notebook
+  of patterns, citations, and observations.
+* **The Blackboard** — classical AI architecture term (Hayes-Roth).
+  Less evocative but precise.
+
+Provisional choice: **Burrow Ledger** for the append-only record;
+**Pattern Library** for the curated, queryable distillation.
+
+=== Record structure (provisional)
+
+Each ledger entry is a `LedgerRecord`:
+
+[source,toml]
+----
+[record]
+id = "uuid-v7"  # time-orderable
+goal_hash = "sha256:..."
+goal_text = "lemma trop_walks_sum_mono_subset: ..."
+specialist = "Algebraist"
+timestamp = "2026-04-26T14:23:11Z"
+
+[approach]
+description = "Apply add_mono after class instance"
+tactics_attempted = ["add_mono", "ordered_semigroup_class.add_mono"]
+preconditions_assumed = ["tropical :: ordered_ab_semigroup_add"]
+
+[result]
+status = "failed"  # | "succeeded" | "partial" | "abandoned"
+explanation = "tropical type does not implement required class"
+artifacts = []  # paths to partial proofs, counterexamples, etc.
+
+[learning]
+pattern_extracted = "tropical-not-ordered-class"
+pattern_kind = "anti-pattern"  # what NOT to try
+generalisation = "Tropical algebra needs explicit hierarchy class instance"
+visible_to = ["Algebraist", "OrderTheorist", "Combinatorialist"]
+----
+
+=== Pattern Library
+
+Distilled from ledger entries that recur. A pattern is a
+`(precondition, approach, outcome)` tuple validated across multiple
+goals. Patterns have:
+
+* **Confidence** — count of confirming records.
+* **Refutations** — count of records where the pattern was tried and
+  failed (informs the precondition).
+* **Citers** — which specialists rely on it.
+* **Anti-pattern flag** — patterns marked "always avoid" carry
+  negative knowledge equally important to positive.
+
+The Pattern Library is queryable: a new agent on a new goal can ask
+"what patterns matching my domain + this goal-shape have worked
+recently?" before trying anything.
+
+== Orchestration
+
+The orchestration question is: **how do agents coordinate without
+becoming a centralised bottleneck?**
+
+=== Three orchestration modes
+
+==== Round-robin (today's MVP)
+
+Each specialist gets the goal in turn (or in parallel). Each returns
+a Reading. Synthesis layer combines. Simple. Works.
+
+Limitation: no agent learns from the others within a single goal.
+
+==== Iterative (next)
+
+The first round produces Readings. The second round, each agent sees
+the *other agents' Readings* and may revise. A topologist seeing the
+algebraist say "this is a semiring fact" may withdraw or sharpen its
+own reading.
+
+This is the negotiation phase. It surfaces real disagreements. Records
+those disagreements as boundary-object signals.
+
+==== Pipeline (later)
+
+Specialists are organised into a pipeline: PhilosopherOfMath reads
+first ("this is constructive / classical / HoTT-style"), then domain
+specialists ("inside that foundation, this is algebraic"), then
+proof-strategy agents ("inside that domain, try these tactics").
+
+Pipeline composition is more disciplined but requires a clear DAG of
+specialist dependencies.
+
+=== Coordination protocol (sketch)
+
+Specialists communicate through structured messages on the Burrow
+Ledger. The protocol has four verbs:
+
+* `propose <approach>` — "I think we should try X"
+* `report <result>` — "I tried X and got Y"
+* `cite <prior>` — "this is similar to ledger entry #1234"
+* `withdraw <id>` — "my earlier proposal #789 is wrong, here's why"
+
+A coordinator (the head agent) reads the protocol stream and issues
+synthesis verdicts. The coordinator never forces agents to agree —
+disagreement is informative.
+
+== Build-on / learn-from
+
+The user's third requirement: agents must produce work that **others
+can build on or learn from**.
+
+This makes the ledger entries *load-bearing* — not just diagnostic.
+Specifically:
+
+=== Build-on
+
+A successful approach is a **partial proof artifact**. A specialist
+that closes a sub-goal records the proof script it used. The next
+agent on a similar sub-goal can:
+
+1. Find the prior partial proof via Pattern Library lookup.
+2. Adapt the script (e.g. via the synonym table from the
+   `echidna suggest` plan in `AI-WORK-echidna.md` §3).
+3. Submit the adapted script. Record outcome.
+
+=== Learn-from
+
+A failed approach is a **negative witness** — it tells future agents
+NOT to waste time on this path. Negative knowledge is as valuable as
+positive: a search space of size N with M known-bad regions is
+effectively a search space of size N-M.
+
+Equally: a partially-failed approach (it worked for `nat` but not
+`tropical`) is a **specialisation signal** — the pattern's
+preconditions need refinement.
+
+=== The reading layer
+
+Beyond raw records, the ledger supports a **reading layer** —
+human-readable summaries that other agents (or humans) can consume:
+
+* "Recent finding: Burrower's Algebraist consistently fails on
+  tropical-typed goals because tropical lacks ordered_ab_semigroup_add.
+  Workaround: explicit `trop_add_le_iff` reasoning. (cited 3x in
+  the last 24h.)"
+
+The reading layer is what makes the swarm a **learning organisation**
+rather than a memoryless ensemble.
+
+== What scales with the swarm
+
+The user's framing — "scalable swarms" — invites the question: what
+exactly scales?
+
+* **Coverage scales linearly** with the number of specialists. Each
+  added specialist covers one more domain.
+* **Trial-and-error breadth scales linearly** — N specialists each
+  trying their preferred approach is N attempts per goal.
+* **Pattern library size scales sub-linearly** — patterns are
+  deduplicated; new agents tend to rediscover existing ones at first.
+* **Orchestration cost scales quadratically** — N agents emitting M
+  messages each gives O(N\*M) reads. This is the bottleneck. Mitigate
+  via topic-filtered subscription (an Algebraist subscribes only to
+  algebra-tagged messages by default).
+* **Foundational divergence costs scale unpredictably** — when
+  PhilosopherOfMath says "this is constructive" but the Algebraist
+  uses classical tactics, you get noise. Mitigate by attaching
+  foundation tags to every pattern.
+
+The right size for the swarm is probably 10–20 specialists at first,
+with hierarchical sub-swarms (e.g. "the algebra desk" containing
+GroupTheorist, RingTheorist, LinearAlgebraist as sub-specialists)
+emerging as needed.
+
+== Where Burrower meets ECHIDNA's failure modes
+
+From `AI-WORK-echidna.md` §1, ECHIDNA's failure modes that the swarm
+naturally addresses:
+
+[cols="1,3"]
+|===
+|ECHIDNA failure |Swarm response
+
+|Wrong abstraction
+|The right specialist proposes the right abstraction. The synthesis
+ layer flags multi-specialist boundary objects where abstraction
+ choice matters most.
+
+|Synonym blindness
+|Each specialist carries its own synonym table for its domain.
+ Cross-domain synonyms surface in the ledger.
+
+|Wrong induction principle
+|The Combinatorialist knows finite-set inductions; the OrderTheorist
+ knows well-founded inductions; the right one is invoked.
+
+|Cross-domain analogy
+|This is Burrower's *strength*. A goal that an Algebraist sees as
+ algebra and a Topologist sees as topology is exactly the kind of
+ cross-domain analogy that ECHIDNA can't see by itself.
+
+|Goal generalisation
+|Each specialist proposes the generalisation native to its domain.
+ The user picks.
+
+|Combinatorial blow-up
+|The ledger records "blow-up zones" so future agents avoid them.
+|===
+
+Burrower-the-swarm is genuinely **complementary** to ECHIDNA-the-
+prover, not a competitor. ECHIDNA dispatches finished proofs;
+Burrower locates the goal and proposes strategy *before* the prover
+runs. Together they are more than the sum.
+
+== Where this becomes a great form
+
+A great form of this system would have:
+
+* **Specialists definable in 007** — agents that make agents.
+  Adding a new domain means writing a 007 file, not patching Rust.
+* **A shared Burrow Ledger** persisted in VeriSimDB (per estate
+  policy: `feedback_verisimdb_policy.md`) so the knowledge survives
+  restarts and can be queried historically.
+* **A Pattern Library** that surfaces useful generalisations weekly
+  via a digest agent ("This week's emergent patterns: …").
+* **An adversarial sub-swarm** — a Devil's Advocate specialist that
+  *deliberately* proposes counter-readings, forcing the others to
+  defend their claims with stronger evidence. (Inspired by
+  `feedback_full_battery_before_claims.md`.)
+* **ECHIDNA integration** as a native ledger consumer: when ECHIDNA
+  fails to close a goal, it posts to the ledger, swarm specialists
+  read, and the most-engaged one proposes a remediation.
+* **Per-specialist confidence calibration** — each specialist learns
+  how often it's been wrong on which kinds of goals; high-confidence
+  agents are weighted more in synthesis. This is Bullshit-Field
+  reasoning per `project_bullshit_field_design.md` applied to the
+  swarm itself.
+* **Compile to typed-wasm** so the whole swarm is portable: run
+  inside the editor, in CI, in the browser, on a serverless edge.
+* **Hidden first** — refine the shape in private; release when the
+  pattern library has matured enough to be useful out of the box.
+
+== Open questions
+
+. How do we keep the ledger from becoming a junk drawer? (Probably:
+  expiration policy + relevance decay + periodic distillation by a
+  curator agent.)
+. How do specialists handle disagreements with each other? (Negotiate
+  via the protocol; surface persistent disagreements as boundary
+  objects; never auto-resolve.)
+. How do new specialists bootstrap their domain expertise? (Bootstrap
+  from existing patterns + a hand-written keyword set + the corpus
+  from their domain's seed library.)
+. What's the right granularity for a "specialist"? (Probably one per
+  AMS-MSC top-level subject, with sub-specialists for active areas.)
+. How do we audit the swarm? (Every recommendation traces to ledger
+  entries. Reproducibility means archived ledgers per release.)
+
+== Provisional verdict
+
+The idea is sound and has more reach than I initially saw. The
+critical addition from this meander: **the swarm without a shared
+knowledge layer is just an ensemble; the swarm WITH a shared ledger
+is a learning organisation that genuinely scales trial-and-error
+into compounding mathematical knowledge.**
+
+Burrower's MVP today (corpus index + 3 specialists + synthesis) is
+the substrate. The ledger and pattern library are the next two
+levers. 007 is the language for adding agents at scale. ECHIDNA
+becomes a downstream consumer.
+
+The form is becoming great.

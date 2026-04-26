@@ -29,7 +29,12 @@
 pub mod goal;
 pub mod corpus;
 pub mod ranking;
+pub mod specialist;
 
 pub use goal::{parse_goal, Goal};
 pub use corpus::{Corpus, IndexedLemma, LibraryKind};
 pub use ranking::{Home, rank};
+pub use specialist::{
+    Algebraist, Combinatorialist, ConsensusHome, OrderTheorist, Reading,
+    Specialist, Swarm, Synthesis,
+};
