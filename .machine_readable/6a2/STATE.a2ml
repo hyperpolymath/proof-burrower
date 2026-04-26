@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# STATE.a2ml v2 — Thin Session Journal for rsr-template-repo
+# See: standards/a2ml-templates/STATE.a2ml.v2.spec.adoc
+
+@state(version="2.0"):
+phase: "maintenance"
+next_action: "Harden multi-forge sync for GitLab/Bitbucket mirroring edge cases"
+last_action: "Updated template with 6a2 standards and v2 STATE format"
+updated: 2026-04-23T12:00:00Z
+@end

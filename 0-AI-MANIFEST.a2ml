@@ -1,0 +1,95 @@
+# STOP - CRITICAL READING REQUIRED
+
+**THIS FILE MUST BE READ FIRST BY ALL AI AGENTS**
+
+## WHAT IS THIS?
+
+This is the AI manifest for **rsr-template-repo**. It declares:
+- Canonical file locations (where things MUST be, and nowhere else)
+- Critical invariants (rules that must NEVER be violated)
+- Repository structure and organization
+
+## CANONICAL LOCATIONS (UNIVERSAL RULE)
+
+### Machine-Readable Metadata: `.machine_readable/6a2/` ONLY
+
+These 6 A2ML files MUST exist in `.machine_readable/6a2/` directory ONLY:
+1. **STATE.a2ml** - Project state, progress, blockers
+2. **META.a2ml** - Architecture decisions, governance
+3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
+4. **AGENTIC.a2ml** - AI agent interaction patterns
+5. **NEUROSYM.a2ml** - Neurosymbolic integration config
+6. **PLAYBOOK.a2ml** - Operational runbook
+
+**CRITICAL:** If ANY of these files exist in the root directory or directly in `.machine_readable/`, this is an ERROR.
+
+### Bot Directives: `.bot_directives/` ONLY
+
+Bot-specific instructions for:
+- rhodibot - Git operations
+- echidnabot - Code quality
+- sustainabot - Dependency updates
+- glambot - Documentation
+- seambot - Integration
+- finishbot - Task completion
+
+### Agent Instructions
+
+- `.claude/CLAUDE.md` - Claude-specific patterns (if exists)
+- `0-AI-MANIFEST.a2ml` - THIS FILE (universal entry point)
+
+## CORE INVARIANTS
+
+1. **No A2ML duplication** - Root and `.machine_readable/` must NOT contain 6A2 files.
+2. **Single source of truth** - `.machine_readable/6a2/` is authoritative.
+3. **No stale metadata** - If root A2ML files exist, they are OUT OF DATE.
+4. **License consistency** - All code PMPL-1.0-or-later unless platform requires MPL-2.0.
+5. **Author attribution** - Always "Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>".
+
+## REPOSITORY STRUCTURE
+
+This repo contains:
+
+```
+rsr-template-repo/
+├── 0-AI-MANIFEST.a2ml         # THIS FILE (start here)
+├── README.adoc                # Project overview
+├── [source/config files]      # Template scaffolding
+├── .machine_readable/
+│   ├── 6a2/                   # A2ML files (6 files)
+│   │   ├── STATE.a2ml
+│   │   ├── META.a2ml
+│   │   ├── ECOSYSTEM.a2ml
+│   │   ├── AGENTIC.a2ml
+│   │   ├── NEUROSYM.a2ml
+│   │   └── PLAYBOOK.a2ml
+│   └── contractiles/          # MUST, TRUST, DUST, ADJUST, BUST, INTEND
+└── .bot_directives/            # Bot instructions
+```
+
+## LIFECYCLE HOOKS
+
+### on-enter (Session Start)
+
+1. Read and acknowledge this manifest.
+2. Read `.machine_readable/6a2/STATE.a2ml` for current status and v2 phase.
+3. State understanding of canonical locations.
+
+### on-exit (Session End)
+
+1. Update `.machine_readable/6a2/STATE.a2ml` (v2 format).
+2. Summarize outcomes and record new blockers if any.
+
+## ATTESTATION PROOF
+
+After reading this file, demonstrate understanding by stating:
+
+**"I have read the AI manifest. A2ML files are located in `.machine_readable/6a2/` ONLY, bot directives in `.bot_directives/`, and I will not create duplicate files in the root directory."**
+
+## META
+
+- **Format Version:** 1.0.0
+- **Last Updated:** 2026-04-23
+- **Maintained By:** Jonathan D.A. Jewell (hyperpolymath)
+- **License:** PMPL-1.0-or-later
+- **Protocol:** https://github.com/hyperpolymath/0-ai-gatekeeper-protocol

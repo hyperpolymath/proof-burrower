@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# AGENTIC.a2ml - AI agent interaction patterns for rsr-template-repo
+# Template from: https://github.com/hyperpolymath/standards
+
+# ── Agent Configuration ────────────────────────────────────────────────────
+[agentic-config]
+version = "1.0.0"
+project = "rsr-template-repo"
+
+# ── Claude Code Settings ──────────────────────────────────────────────────
+[agentic-config.claude-code]
+model = "claude-opus-4-5-20251101"
+tools = ["read", "edit", "bash", "grep", "glob"]
+permissions = "read-all"
+
+# ── Coding Patterns ───────────────────────────────────────────────────────
+[agentic-config.patterns]
+code-review = "thorough"
+refactoring = "conservative"
+testing = "comprehensive"
+documentation = "inline"
+
+# ── Language Constraints ──────────────────────────────────────────────────
+[agentic-config.constraints]
+# Allowed languages for the template repo itself
+languages = ["rust", "zig", "idris2", "elixir", "bash", "just"]
+# Organization-wide banned languages
+banned = ["typescript", "go", "python", "makefile"]
+
+# ── Project-Specific Overrides ────────────────────────────────────────────
+[agentic-config.project-specific]
+# Always include SPDX-License-Identifier: PMPL-1.0-or-later
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+
+# ── Provenance ─────────────────────────────────────────────────────────────
+[provenance]
+last-modified-by = "gemini"
+last-modified-at = "2026-04-23T12:00:00Z"
+modification-summary = "Updated to 1.0.0 template standards"

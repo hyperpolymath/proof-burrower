@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# PLAYBOOK.a2ml — Operational playbook for rsr-template-repo
+# Template from: https://github.com/hyperpolymath/standards
+
+[metadata]
+version = "1.0.0"
+last-updated = "2026-04-23"
+
+[deployment]
+method = "manual"
+target = "repository-scaffolding"
+notes = "This repo is a template and is not 'deployed' in the traditional sense. It is consumed via `git clone` or as a GitHub template."
+
+[incident-response]
+steps = [
+  "1. Read 0-AI-MANIFEST.a2ml for canonical locations.",
+  "2. Check .machine_readable/6a2/STATE.a2ml for active blockers.",
+  "3. Run `just validate-rsr` to check for standards regressions.",
+  "4. If standards have drifted, consult developer-ecosystem/standards for the source of truth.",
+]
+
+[release-process]
+steps = [
+  "1. Update version and last-updated in all 6A2 files.",
+  "2. Run `just validate-rsr` and ensure 100% compliance.",
+  "3. Verify all contractile probes pass with `just contractile-check`.",
+  "4. Tag the release with `vX.Y.Z`.",
+  "5. Push tags and update the 'last-updated' field in META.a2ml.",
+]
+
+[maintenance-operations]
+audit = "just maint-audit"
+hard-pass = "just maint-hard-pass"
+permissions = "just perms-audit"
+contractiles = "just contractile-check"

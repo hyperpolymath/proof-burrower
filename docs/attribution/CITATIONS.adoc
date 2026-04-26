@@ -1,0 +1,35 @@
+= Proof Burrower - Citation Guide
+:toc:
+
+== BibTeX
+
+[source,bibtex]
+----
+@software{Proof Burrower_2026,
+  author = {Jewell, Jonathan},
+  title = {Proof Burrower},
+  year = {2026},
+  url = {https://github.com/hyperpolymath/Proof Burrower},
+  license = {PMPL-1.0-or-later}
+}
+----
+
+== Harvard Style
+
+Jewell, JJ (2026) _Proof Burrower_ [Computer software]. Available at: https://github.com/hyperpolymath/Proof Burrower
+
+== OSCOLA
+
+Jonathan D.A. Jewell, 'Proof Burrower' (2026) <https://github.com/hyperpolymath/Proof Burrower>
+
+== MLA
+
+Jewell, Jonathan "Proof Burrower." 2026, github.com/hyperpolymath/Proof Burrower.
+
+== APA 7
+
+Jewell, JJ (2026). _Proof Burrower_ [Computer software]. GitHub. https://github.com/hyperpolymath/Proof Burrower
+
+== See Also
+
+* link:CITATION.cff[CITATION.cff]

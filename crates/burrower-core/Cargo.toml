@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+[package]
+name        = "burrower-core"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+description = "Core engine: parse a proof goal, index a mathlib corpus, rank candidate homes."
+
+[dependencies]
+anyhow      = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+walkdir     = { workspace = true }
+regex       = { workspace = true }
+
+[dev-dependencies]
+tempfile    = "3"

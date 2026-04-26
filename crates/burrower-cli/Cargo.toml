@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+[package]
+name        = "burrower"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+description = "Proof Burrower CLI: locate the mathematical home of a proof goal."
+
+[[bin]]
+name = "burrower"
+path = "src/main.rs"
+
+[dependencies]
+burrower-core = { path = "../burrower-core" }
+anyhow        = { workspace = true }
+serde_json    = { workspace = true }
+clap          = { workspace = true }

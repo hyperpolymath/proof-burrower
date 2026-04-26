@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# ECOSYSTEM.a2ml — Ecosystem position for rsr-template-repo
+# Converted and updated 2026-04-23
+
+[metadata]
+project = "rsr-template-repo"
+ecosystem = "hyperpolymath"
+
+[position]
+type = "infrastructure"
+purpose = "Canonical RSR-compliant repository template providing scaffolding for all hyperpolymath projects — including CI/CD, AI manifests, ABI/FFI standards, container ecosystem, and governance infrastructure."
+
+[pipeline]
+position = "foundation"
+chain = "standards → rsr-template-repo → all-other-repos"
+notes = "This repository serves as the practical implementation of the Hyperpolymath standards. It is the root of the 'scaffolding' tree for the entire ecosystem."
+
+[related-projects]
+projects = [
+  { name = "standards", relationship = "parent", notes = "Defines the high-level policies and specifications that this template implements." },
+  { name = "rhodium-standard-repositories", relationship = "specification", notes = "The formal specification of the RSR standard." },
+  { name = "git-rsr-certified", relationship = "tooling", notes = "Universal RSR compliance engine that validates repositories against the standards defined here." },
+  { name = "stapeln", relationship = "integration", notes = "Container ecosystem standard integrated into the template." },
+  { name = "k9-svc", relationship = "integration", notes = "Self-validating components framework used for deployment and validation." },
+]

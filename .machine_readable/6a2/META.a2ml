@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# META.a2ml - Project metadata and architectural decisions for rsr-template-repo
+# Template from: https://github.com/hyperpolymath/standards
+
+# ── Project Identity ───────────────────────────────────────────────────────
+[project-meta]
+version = "1.0.0"
+name = "rsr-template-repo"
+
+# ── Architecture Decisions ─────────────────────────────────────────────────
+[project-meta.architecture-decisions]
+
+[project-meta.architecture-decisions.adr-001]
+status = "accepted"
+date = "2026-02-08"
+context = "Need a unified metadata standard for all repositories."
+decision = "Adopt the 6A2 format family (META, STATE, ECOSYSTEM, PLAYBOOK, AGENTIC, NEUROSYM, ANCHOR) in .machine_readable/ directory."
+consequences = "Atomic cross-spec changes and machine-readable project status across the ecosystem."
+
+[project-meta.architecture-decisions.adr-002]
+status = "accepted"
+date = "2026-04-05"
+context = "STATE.a2ml v1 was too verbose and drifted from reality."
+decision = "Migrate to STATE.a2ml v2 (Thin Session Journal) focusing only on phase, last_action, next_action, and blockers."
+consequences = "Reduced maintenance overhead and higher data fidelity."
+
+# ── Development Practices ──────────────────────────────────────────────────
+[project-meta.development-practices]
+code-style = "rsr"
+security = "openssf-scorecard"
+testing = "comprehensive"
+versioning = "semver"
+documentation = "asciidoc"
+branching = "trunk-based"
+
+# ── Design Rationale ──────────────────────────────────────────────────────
+[project-meta.design-rationale]
+# The RSR template repo exists to enforce organizational standards by default.
+# It prioritizes machine-readability, formal verification (Idris2), and 
+# memory safety (Zig/Rust) while ensuring a consistent developer experience
+# via the Just task runner.
+
+# ── Provenance ─────────────────────────────────────────────────────────────
+[provenance]
+last-modified-by = "gemini"
+last-modified-at = "2026-04-23T12:00:00Z"
+modification-summary = "Updated to 1.0.0 template standards and recorded ADRs"
