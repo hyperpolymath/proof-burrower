@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Burrower vs. Manual Closeout — `tropical-resource-typing` (2026-04-26)
+:toc:
+
+== Context
+
+Earlier the same day a session closed all 16 Isabelle 2025-1 drift sites in
+`verification-ecosystem/tropical-resource-typing` manually (commits
+`ac851910` … `cab5da8`).  The repo was originally chosen to dogfood-test the
+agentic swarm; that signal was spent.  This experiment goes back and replays
+the closest-mirror micro-goals through `burrower attempt` to compare
+playbook coverage against the manual fixes.
+
+== Method
+
+* Binary: `proof-burrower/target/debug/burrower`
+* Backend: `echidna prove` (Isabelle, `imports Main` only)
+* Per-attempt timeout: 30 s
+* Ledger: `ledger.jsonl` (this directory), 20 entries
+
+Probe goals were either the exact micro-step Claude wrote in its manual fix,
+or a Main-only mirror where the original goal referenced custom definitions
+(e.g.\ `walk_concat`, `trop_mat_star`).
+
+== Results
+
+[cols="3,3,2", options="header"]
+|===
+| Goal | Manual fix | Burrower
+
+| `set (tl xs) \<subseteq> set xs` (sub-step inside CNO 539 fix)
+| `by (cases w_mj) auto`
+| ✓ Combinatorialist `induction-list` succeeded — 7 other tactics failed first
+
+| `(a::nat) \<le> b \<Longrightarrow> b \<le> c \<Longrightarrow> a \<le> c` (control)
+| n/a
+| ✓ all 4 OrderTheorist tactics succeeded
+
+| `ws \<noteq> [] \<Longrightarrow> hd ws # tl ws = ws` (control — list)
+| n/a
+| ✗ 0 specialists engaged
+
+| `set xs \<subseteq> S \<Longrightarrow> set ys \<subseteq> S \<Longrightarrow> set (xs @ tl ys) \<subseteq> S` (mirror of CNO 539 top-level)
+| explicit 2-step (`set (tl xs) \<subseteq> set xs`, then `auto`)
+| ✗ all 8 tactics failed
+
+| `walk_concat_nonempty` (CNO 174)
+| `by (induction ws rule: walk_concat.induct) auto`
+| n/a — needs `walk_concat` defn; probe header is fixed at `imports Main`
+
+| `trop_mat_star_idem` real proof gap (CNO 699)
+| Structural change: added `no_pos_cycle n A` assumption + switched lemma application
+| n/a — Burrower has no specialist for "weaken the theorem statement"
+|===
+
+== Findings (in priority order — dependability first)
+
+. *Burrower's playbook recreates the inner step but not the chain.*  It
+  proves the singleton `set (tl xs) \<subseteq> set xs` — exactly the
+  micro-lemma I introduced by hand inside the CNO 539 fix.  But it cannot
+  glue that step to the surrounding two-hypothesis goal.  The
+  Combinatorialist needs a `subset-tail-then-append` composite tactic.
+
+. *No List specialist.*  The control goal `hd ws # tl ws = ws` got zero
+  engagement.  The taxonomy currently has Algebraist / OrderTheorist /
+  Combinatorialist; a Listologist (lists, induction by `case (Cons …)`,
+  `rev` / `last` / `tl` lemmas) would catch this whole class.
+
+. *Probe headers are not configurable per attempt.*  Every probe is
+  `imports Main`, so any goal mentioning a project-specific definition
+  (e.g.\ `walk_concat`, `trop_mat_star`, `no_pos_cycle`) is unreachable.
+  Mechanical drift fixes that *look* trivial — `(induction ws rule:
+  walk_concat.induct) auto` — are off-limits until probes can take an
+  explicit imports/setup block.
+
+. *No structural-change specialist.*  The genuinely interesting site (CNO
+  699) wasn't a tactic-search problem; the manual fix was "this lemma is
+  false as stated; add the missing assumption that the rest of the file
+  already uses on related lemmas."  Burrower's playbook model can't propose
+  weakening a theorem statement.  This is the gap that justified the
+  Algebraist agent in the original spec — it was supposed to read across
+  the corpus and notice the pattern — but it didn't fire here, presumably
+  because we ran `attempt` (single-goal, no corpus index), not `swarm`.
+
+. *Anti-pattern recording works.*  All 7 failed `set (tl xs) \<subseteq>
+  set xs` attempts wrote `tactic-fails-generic-failure` learnings to the
+  ledger.  After this single goal the OrderTheorist now has four recorded
+  anti-patterns to skip on subsequent invocations.  This is the actual
+  dogfood signal worth extracting — the ledger after a real backlog run
+  would let us prune playbooks and rank tactics.
+
+== Comparison with manual closeout
+
+Of the 16 sites closed manually:
+
+* *0 sites* would have been closed by Burrower out-of-the-box (the only
+  micro-goal it can prove was a sub-step Claude introduced, not an
+  original site).
+* *4 mechanical drift sites* (CNO 174/539, plus the `Fun.swap` rewrite
+  pattern in Determinants 2x2) could plausibly be reachable with
+  per-attempt imports + a `Listologist` specialist.
+* *Type-class regressions* (Det 153/207, the `ordered_ab_semigroup_add`
+  instance in `Tropical_v2`) need a specialist that can propose new
+  `instance` declarations, not just close existing goals.
+* *The real proof gap* (CNO 699 / `trop_mat_star_idem`) needs an
+  Algebraist swarm read of the corpus, not single-goal `attempt`.
+
+== Concrete next-actions for Burrower
+
+. Add a `Listologist` specialist (lists, `tl`, `hd`, `last`, `induction xs
+  rule: list.induct`, `induction xs rule: <user-fun>.induct`).
+. Make probe imports + helper lemmas configurable per `attempt` invocation.
+. Add a `set-tail-subset` micro-tactic to the Combinatorialist playbook.
+. Wire `swarm` (corpus-aware) into the comparison rather than `attempt`
+  (single-goal); rerun this experiment with the tropical theory files
+  indexed.
+. Extend the agent DSL with a "weaken the goal" / "strengthen the
+  hypothesis" action so structural fixes are representable.
+
+== Honest framing
+
+Burrower closed *one* of *four* mechanical micro-goals tested here, and
+none of the original sites.  The *infrastructure works* — Echidna runs,
+playbooks dispatch, the ledger captures both successes and the much more
+informative failures.  The gap is in coverage (specialist taxonomy +
+playbook breadth + probe configurability), not plumbing.  That is exactly
+the data the original dogfood-test was meant to surface, and is now
+captured in `ledger.jsonl` next to this report.
