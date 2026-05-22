@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: PMPL-1.0-or-later
+-- SPDX-License-Identifier: MPL-2.0
 -- Combinatorialist — Burrower seed specialist for finite/discrete structure.
 --
 -- Recognises finite sets, sums over finite sets, lists, sequences,

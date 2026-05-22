@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 #
 # Pin to rustup's stable toolchain so wasm32-unknown-unknown is
 # available reliably. The Fedora-packaged system rustc does not

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # AGENTIC.a2ml - AI agent interaction patterns for rsr-template-repo
 # Template from: https://github.com/hyperpolymath/standards
 
@@ -29,7 +29,7 @@ banned = ["typescript", "go", "python", "makefile"]
 
 # ── Project-Specific Overrides ────────────────────────────────────────────
 [agentic-config.project-specific]
-# Always include SPDX-License-Identifier: PMPL-1.0-or-later
+# Always include SPDX-License-Identifier: MPL-2.0
 # Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 # ── Provenance ─────────────────────────────────────────────────────────────

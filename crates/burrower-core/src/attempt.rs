@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 
 //! # Proof attempts
 //!
@@ -136,7 +136,7 @@ pub struct ProofAttempt {
 pub fn generate_probe(goal_text: &str, tactic: &TacticTemplate) -> String {
     let stmt = extract_statement(goal_text);
     format!(
-        "(* SPDX-License-Identifier: PMPL-1.0-or-later *)\n\
+        "(* SPDX-License-Identifier: MPL-2.0 *)\n\
          (* Burrower probe — auto-generated, do not edit. *)\n\
          theory Probe\n\
            imports Main\n\
