@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: MPL-2.0
 name: NPM/Bun Blocker
 on: [push, pull_request]
-
 permissions:
   contents: read
-
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:

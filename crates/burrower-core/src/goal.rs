@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Goal parsing and normalisation.
 //!
 //! A `Goal` is the input side of Burrower: a proof obligation we want to
