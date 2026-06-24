@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # AffineScript Game Bundling & Licensing Strategy
@@ -118,7 +118,7 @@ cp LICENSE-AGPL-3.0 LICENSE-GAME
 Add proper license headers:
 
 ```affinescript
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
 //
 // This file is part of the AffineScript Game
@@ -412,13 +412,13 @@ When contributing to AffineScript, please note:
 
 **Example Game File Header:**
 ```affinescript
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Your Name
 ```
 
 **Example Tech File Header:**
 ```ocaml
-(* SPDX-License-Identifier: MPL-2.0 *)
+(* SPDX-License-Identifier: CC-BY-SA-4.0 *)
 (* SPDX-FileCopyrightText: 2026 Your Name *)
 ```
 ```
@@ -553,5 +553,5 @@ Runtime Distribution (PMPL):
 
 **Result:** Clear AGPL licensing for game content with PMPL licensing for core technology, enabling open game development while maintaining permissive tooling licenses.
 
-SPDX-License-Identifier: AGPL-3.0-or-later AND MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0 AND MPL-2.0
 SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell

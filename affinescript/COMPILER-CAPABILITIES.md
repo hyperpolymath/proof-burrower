@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # AffineScript Compiler Capabilities Analysis
@@ -397,5 +397,5 @@ Parallel Operations| N/A            | 2x-4x (cores)   | 1000x (cores)
 
 **Recommendation:** For current development, use WASM deployment targeting browsers. For future-proof design, plan for native and GPU backends coming in later releases.
 
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
