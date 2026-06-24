@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # AffineScript Licensing Guide
@@ -103,7 +103,7 @@ graph TD
 
 **File Header:**
 ```affinescript
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
 //
 // This file is part of the AffineScript Game
@@ -138,7 +138,7 @@ graph TD
 
 **File Header:**
 ```ocaml
-(* SPDX-License-Identifier: MPL-2.0 *)
+(* SPDX-License-Identifier: CC-BY-SA-4.0 *)
 (* SPDX-FileCopyrightText: 2026 Palimpsest Stewardship Council *)
 (*
  * This file is part of AffineScript Core Technology
@@ -172,8 +172,8 @@ graph TD
 
 **File Header:**
 ```rust
-// SPDX-License-Identifier: MPL-2.0
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
 //
 // This file is part of Gossamer/Burble Foundational Technologies
@@ -466,5 +466,5 @@ Foundational Tech (PMPL/MPL-2.0) → Ethical infrastructure
 **Version:** Alpha-1
 **Status:** Complete licensing documentation
 
-SPDX-License-Identifier: AGPL-3.0-or-later AND MPL-2.0 AND MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0 AND MPL-2.0 AND MPL-2.0
 SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell and contributors
