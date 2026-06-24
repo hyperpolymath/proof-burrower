@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 > Historical snapshot from 2026-01-23. Superseded by .machine_readable/6a2/STATE.a2ml. Retained for audit trail only.

@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # AffineScript Game Controls Reference
@@ -557,5 +557,5 @@ Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 **Version:** Alpha-1
 **Status:** Basic controls implemented, combat system planned
 
-SPDX-License-Identifier: AGPL-3.0-or-later
+SPDX-License-Identifier: CC-BY-SA-4.0
 SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
