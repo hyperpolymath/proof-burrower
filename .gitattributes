@@ -16,7 +16,6 @@
 *.hs    text eol=lf
 *.chpl  text eol=lf
 *.scm   text eol=lf
-*.a2ml  text eol=lf linguist-language=TOML
 *.ncl   text eol=lf
 *.nix   text eol=lf
 
@@ -34,7 +33,7 @@
 # Config
 .gitignore     text eol=lf
 .gitattributes text eol=lf
-Justfile       text eol=lf
+justfile       text eol=lf
 Makefile       text eol=lf
 Containerfile  text eol=lf
 
