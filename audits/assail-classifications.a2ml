@@ -1,0 +1,21 @@
+%A2ML
+- suppression:
+    file: 'affinescript/tools/affine-doc/assets/search.js'
+    rule: 'DynamicCodeExecution'
+    justification: 'Static HTML template rendering for documentation search. Inputs are statically generated and sanitized.'
+- suppression:
+    file: 'crates/burrower-core/src/corpus.rs'
+    rule: 'UnboundedAllocation'
+    justification: 'Reads bounded corpus data files controlled by local project scope.'
+- suppression:
+    file: 'affinescript/tools/affine-pkg/src/lockfile.rs'
+    rule: 'UnboundedAllocation'
+    justification: 'Reads local lockfiles; size bounded by project size.'
+- suppression:
+    file: 'affinescript/tools/affine-pkg/src/manifest.rs'
+    rule: 'UnboundedAllocation'
+    justification: 'Reads local manifest files; size bounded by project size.'
+- suppression:
+    file: 'affinescript/tools/affine-pkg/src/config.rs'
+    rule: 'UnboundedAllocation'
+    justification: 'Reads local config files; size bounded by project size.'
