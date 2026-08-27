@@ -50,7 +50,7 @@ Dirty-rects contain coordinates and version numbers only - Frontend
 accesses pixel data via typed region reference (L12 freshness) - Full
 implementation: docs/WASM-EFFECT-HANDLER-WORKAROUND.md
 
-*Migration Path*: - Monitor Ephapax `+.machine_readable/STATE.a2ml+`
+*Migration Path*: - Monitor Ephapax `+.machine_readable/descriptiles/STATE.a2ml+`
 - Replace channels with effect handlers when lowering is complete -
 Traffic class separation preserved regardless of transport mechanism
 

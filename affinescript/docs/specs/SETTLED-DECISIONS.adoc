@@ -8,7 +8,7 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 This document records design decisions that are fully settled. Each entry
 gives the decision, the reasoning, and a pointer to the full ADR in
-`.machine_readable/META.a2ml`.
+`.machine_readable/descriptiles/META.a2ml`.
 
 These are not open questions. Do not reopen them without amending the ADR.
 

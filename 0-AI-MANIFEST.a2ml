@@ -72,12 +72,12 @@ rsr-template-repo/
 ### on-enter (Session Start)
 
 1. Read and acknowledge this manifest.
-2. Read `.machine_readable/STATE.a2ml` for current status and v2 phase.
+2. Read `.machine_readable/descriptiles/STATE.a2ml` for current status and v2 phase.
 3. State understanding of canonical locations.
 
 ### on-exit (Session End)
 
-1. Update `.machine_readable/STATE.a2ml` (v2 format).
+1. Update `.machine_readable/descriptiles/STATE.a2ml` (v2 format).
 2. Summarize outcomes and record new blockers if any.
 
 ## ATTESTATION PROOF

@@ -3,7 +3,7 @@
 === Status Sync (2026-04-12)
 
 This document tracks the implementation status of algebraic effects in
-AffineScript and is aligned with `+.machine_readable/STATE.a2ml+`.
+AffineScript and is aligned with `+.machine_readable/descriptiles/STATE.a2ml+`.
 
 === Syntax (Current Parser Form)
 
