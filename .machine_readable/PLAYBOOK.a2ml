@@ -14,7 +14,7 @@ notes = "This repo is a template and is not 'deployed' in the traditional sense.
 [incident-response]
 steps = [
   "1. Read 0-AI-MANIFEST.a2ml for canonical locations.",
-  "2. Check .machine_readable/6a2/STATE.a2ml for active blockers.",
+  "2. Check .machine_readable/STATE.a2ml for active blockers.",
   "3. Run `just validate-rsr` to check for standards regressions.",
   "4. If standards have drifted, consult developer-ecosystem/standards for the source of truth.",
 ]

@@ -15,7 +15,7 @@ image:https://img.shields.io/badge/Powered%20By-Gossamer%20%26%20Burble-orange.s
 
 [NOTE]
 ====
-*Honest status sync (2026-04-12):* Affine/QTT and borrow checking are wired into the CLI pipeline (`check`, `compile`, `eval`) and gate user programs today. Specifically, `Typecheck.check_program`, `Borrow.check_program`, and `Quantity.check_program_quantities` are all invoked from `bin/main.ml`. Dependent/refinement types remain parse-first (predicates do not reduce yet), and codegen backends still have feature gaps (notably effect-handler lowering in Wasm backends). See `.machine_readable/6a2/STATE.a2ml` `[features]` for the authoritative per-feature status.
+*Honest status sync (2026-04-12):* Affine/QTT and borrow checking are wired into the CLI pipeline (`check`, `compile`, `eval`) and gate user programs today. Specifically, `Typecheck.check_program`, `Borrow.check_program`, and `Quantity.check_program_quantities` are all invoked from `bin/main.ml`. Dependent/refinement types remain parse-first (predicates do not reduce yet), and codegen backends still have feature gaps (notably effect-handler lowering in Wasm backends). See `.machine_readable/STATE.a2ml` `[features]` for the authoritative per-feature status.
 ====
 
 AffineScript is the only language that combines affine types, quantitative type theory, row polymorphism, and algebraic effects in a single practical systems language. This means you can write game code where the compiler *proves* your protocol states, resource lifecycles, and effect boundaries are correct -- with syntax that feels like a modern game scripting language, not a theorem prover.
@@ -325,7 +325,7 @@ _build/default/bin/main.exe check --json test/e2e/fixtures/affine_basic.affine
 
 == Project Status
 
-**Status sync (2026-04-12):** This section is aligned with `.machine_readable/6a2/STATE.a2ml`.
+**Status sync (2026-04-12):** This section is aligned with `.machine_readable/STATE.a2ml`.
 Core affine/QTT and borrow gates are live in the standard CLI paths. Dependent/refinement types are still parse-only. Effects run in the interpreter; Wasm backend support is still partial for handlers/resume semantics. **Bridge layer developers: use the typed channel workaround documented in `docs/WASM-EFFECT-HANDLER-WORKAROUND.md`.**
 
 NOTE: The standard file extension for AffineScript source is `.affine`.
@@ -393,7 +393,7 @@ AffineScript is in active development with active weekly commits and a passing `
 
 === Next Priorities (Post-Sync)
 The immediate priorities are execution and drift control:
-* Keep `README`, `ROADMAP`, `COMPILER-CAPABILITIES`, and `.machine_readable/6a2/STATE.a2ml` synchronized on each feature milestone.
+* Keep `README`, `ROADMAP`, `COMPILER-CAPABILITIES`, and `.machine_readable/STATE.a2ml` synchronized on each feature milestone.
 * Finish parser/README/example syntax convergence around effects and quantity annotations.
 * Close remaining backend gaps for effect handler lowering so interpreter and Wasm behavior converge.
 * Keep `examples/` parse-checkable in CI to prevent documentation drift from reappearing.

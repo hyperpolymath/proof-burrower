@@ -11,9 +11,9 @@ This is the AI manifest for **rsr-template-repo**. It declares:
 
 ## CANONICAL LOCATIONS (UNIVERSAL RULE)
 
-### Machine-Readable Metadata: `.machine_readable/6a2/` ONLY
+### Machine-Readable Metadata: `.machine_readable/` ONLY
 
-These 6 A2ML files MUST exist in `.machine_readable/6a2/` directory ONLY:
+These 6 A2ML files MUST exist in `.machine_readable/` directory ONLY:
 1. **STATE.a2ml** - Project state, progress, blockers
 2. **META.a2ml** - Architecture decisions, governance
 3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
@@ -41,7 +41,7 @@ Bot-specific instructions for:
 ## CORE INVARIANTS
 
 1. **No A2ML duplication** - Root and `.machine_readable/` must NOT contain 6A2 files.
-2. **Single source of truth** - `.machine_readable/6a2/` is authoritative.
+2. **Single source of truth** - `.machine_readable/` is authoritative.
 3. **No stale metadata** - If root A2ML files exist, they are OUT OF DATE.
 4. **License consistency** - All code MPL-2.0 unless platform requires MPL-2.0.
 5. **Author attribution** - Always "Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>".
@@ -56,7 +56,7 @@ rsr-template-repo/
 ├── README.adoc                # Project overview
 ├── [source/config files]      # Template scaffolding
 ├── .machine_readable/
-│   ├── 6a2/                   # A2ML files (6 files)
+│   ├── *.a2ml                 # A2ML files (6 files)
 │   │   ├── STATE.a2ml
 │   │   ├── META.a2ml
 │   │   ├── ECOSYSTEM.a2ml
@@ -72,19 +72,19 @@ rsr-template-repo/
 ### on-enter (Session Start)
 
 1. Read and acknowledge this manifest.
-2. Read `.machine_readable/6a2/STATE.a2ml` for current status and v2 phase.
+2. Read `.machine_readable/STATE.a2ml` for current status and v2 phase.
 3. State understanding of canonical locations.
 
 ### on-exit (Session End)
 
-1. Update `.machine_readable/6a2/STATE.a2ml` (v2 format).
+1. Update `.machine_readable/STATE.a2ml` (v2 format).
 2. Summarize outcomes and record new blockers if any.
 
 ## ATTESTATION PROOF
 
 After reading this file, demonstrate understanding by stating:
 
-**"I have read the AI manifest. A2ML files are located in `.machine_readable/6a2/` ONLY, bot directives in `.bot_directives/`, and I will not create duplicate files in the root directory."**
+**"I have read the AI manifest. A2ML files are located in `.machine_readable/` ONLY, bot directives in `.bot_directives/`, and I will not create duplicate files in the root directory."**
 
 ## META
 

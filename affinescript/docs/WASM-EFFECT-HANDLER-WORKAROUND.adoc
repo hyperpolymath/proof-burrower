@@ -387,7 +387,7 @@ until effect handler lowering is complete.
 === Migration Trigger
 
 *When to migrate*: Only when Ephapax
-`+.machine_readable/6a2/STATE.a2ml+` confirms effect-handler lowering in
+`+.machine_readable/STATE.a2ml+` confirms effect-handler lowering in
 WASM targets is complete.
 
 *What changes*: Transport mechanism only (channels → effect handlers).
