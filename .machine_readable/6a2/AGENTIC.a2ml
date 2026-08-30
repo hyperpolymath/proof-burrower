@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
-# AGENTIC.a2ml - AI agent interaction patterns for rsr-template-repo
+# AGENTIC.a2ml - AI agent interaction patterns for proof-burrower
 # Template from: https://github.com/hyperpolymath/standards
 
 # ── Agent Configuration ────────────────────────────────────────────────────
 [agentic-config]
 version = "1.0.0"
-project = "rsr-template-repo"
+project = "proof-burrower"
 
 # ── Claude Code Settings ──────────────────────────────────────────────────
 [agentic-config.claude-code]
