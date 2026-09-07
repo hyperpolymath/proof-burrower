@@ -72,7 +72,7 @@ static mut ALLOCATOR: AllocatorState = AllocatorState {
 ///
 /// Called once at program startup.
 pub fn init() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Query WASM memory size
     // - [ ] Set up heap region
     // - [ ] Initialize free lists
@@ -91,7 +91,7 @@ pub fn init() {
 /// Pointer to allocated memory, or null on failure
 #[no_mangle]
 pub extern "C" fn allocate(size: usize, align: usize) -> *mut u8 {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Check free list for matching size class
     // - [ ] Fall back to bump allocation
     // - [ ] Handle out-of-memory (grow memory or fail)
@@ -113,7 +113,7 @@ pub extern "C" fn allocate(size: usize, align: usize) -> *mut u8 {
 /// The pointer must have been allocated by this allocator and not yet freed.
 #[no_mangle]
 pub unsafe extern "C" fn deallocate(ptr: *mut u8, size: usize, align: usize) {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Validate pointer is in heap range
     // - [ ] Add to appropriate free list
     // - [ ] Coalesce adjacent free blocks (optional)
@@ -139,7 +139,7 @@ pub unsafe extern "C" fn reallocate(
     new_size: usize,
     align: usize,
 ) -> *mut u8 {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] If shrinking, just update size
     // - [ ] If growing and space available, extend in place
     // - [ ] Otherwise allocate new block and copy
@@ -159,7 +159,7 @@ pub extern "C" fn alloc_stats() -> (usize, usize, usize) {
     }
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Implement size class selection
 // - [ ] Implement free list management
 // - [ ] Add memory growth support

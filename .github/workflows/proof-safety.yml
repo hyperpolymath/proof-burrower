@@ -57,5 +57,4 @@ jobs:
         env:
           ECHIDNA_BIN: ${{ github.workspace }}/_echidna/target/debug/echidna
         run: |
-          isabelle version
-          cargo test --locked -p burrower-core --test live_isabelle -- --ignored --nocapture
+          bash tests/e2e.sh

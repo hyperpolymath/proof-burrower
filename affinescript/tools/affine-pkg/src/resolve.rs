@@ -117,7 +117,7 @@ impl Resolver {
         &mut self,
         _root_deps: &HashMap<String, Dependency>,
     ) -> Result<ResolvedGraph, ResolveError> {
-        // TODO: Phase 8 implementation using PubGrub algorithm
+        // TODO(#84): Phase 8 implementation using PubGrub algorithm
         // Reference: https://nex3.medium.com/pubgrub-2fb6470504f
         //
         // 1. Start with root package requirements
@@ -144,7 +144,7 @@ impl Resolver {
 
     /// Get available versions for a package
     fn get_versions(&mut self, _name: &str) -> Result<&[Version], ResolveError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Check cache
         // - [ ] Query registry
         // - [ ] Parse and cache versions
@@ -154,7 +154,7 @@ impl Resolver {
 
     /// Get package metadata
     fn get_metadata(&mut self, _id: &PackageId) -> Result<&PackageMetadata, ResolveError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Check cache
         // - [ ] Query registry
         // - [ ] Parse and cache metadata
@@ -182,7 +182,7 @@ pub fn parse_requirement(s: &str) -> Result<VersionReq, semver::Error> {
     VersionReq::parse(&normalized)
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Implement full PubGrub algorithm
 // - [ ] Add version preference (prefer newer, prefer locked)
 // - [ ] Add feature unification
