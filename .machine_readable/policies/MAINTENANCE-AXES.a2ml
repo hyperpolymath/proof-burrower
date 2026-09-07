@@ -20,7 +20,7 @@ machine-entrypoints = [
   ".machine_readable/policies/SOFTWARE-DEVELOPMENT-APPROACH.a2ml",
   ".machine_readable/descriptiles/META.a2ml",
   ".machine_readable/ai/README.adoc",
-  ".bot_directives/README.scm",
+  ".bot_directives/README.adoc",
 ]
 bots = ["hypatia", "gitbot-fleet", "repo visitors"]
 

@@ -494,13 +494,13 @@ self-assess:
         echo "    automated compliance checking. Zero cost to keep."
     fi
 
-    if [ -d ".machine_readable/bot_directives" ]; then
+    if [ -d ".bot_directives" ]; then
         echo "  ◆ bot_directives/ — Gitbot fleet configuration."
         echo "    Not active until gitbot-fleet is connected. Keeps your repo"
         echo "    ready for automated maintenance when the fleet arrives."
     fi
 
-    if [ -d ".machine_readable/bot_directives" ]; then
+    if [ -d ".bot_directives" ]; then
         echo "  ◆ bot_directives/ — AI agent methodology config."
         echo "    Guides Claude/Gemini/etc on how to work in this repo."
         echo "    No cost to keep. Improves AI assistance quality."

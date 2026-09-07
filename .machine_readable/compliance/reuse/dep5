@@ -19,7 +19,7 @@ Copyright: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 License: MPL-2.0
 
 # Bot directives
-Files: .machine_readable/bot_directives/*
+Files: .bot_directives/*
 Copyright: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 License: MPL-2.0
 

@@ -56,7 +56,7 @@ let methodology_guard = {
     coverage_updated = {
       description = "coverage.a2ml should be updated within 30 days",
       severity = "info",
-      file = ".machine_readable/bot_directives/coverage.a2ml",
+      file = ".bot_directives/coverage.a2ml",
       staleness_days = 30,
     },
   },
