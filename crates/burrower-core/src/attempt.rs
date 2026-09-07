@@ -189,8 +189,26 @@ fn extract_statement(goal_text: &str) -> String {
     // command only outside quoted terms; Isabelle checks the retained syntax.
     let mut quoted = false;
     let mut escaped = false;
+    let mut comment_depth = 0usize;
+    let mut skip_until = 0;
     let mut end = body.len();
     for (index, ch) in body.char_indices() {
+        if index < skip_until {
+            continue;
+        }
+        let tail = &body[index..];
+        if !quoted && tail.starts_with("(*") {
+            comment_depth += 1;
+            skip_until = index + 2;
+            continue;
+        }
+        if comment_depth > 0 {
+            if tail.starts_with("*)") {
+                comment_depth -= 1;
+                skip_until = index + 2;
+            }
+            continue;
+        }
         if escaped {
             escaped = false;
             continue;
@@ -203,15 +221,15 @@ fn extract_statement(goal_text: &str) -> String {
             quoted = !quoted;
             continue;
         }
-        if !quoted && (index == 0 || body[..index].ends_with(char::is_whitespace)) {
-            let tail = &body[index..];
-            if ["by", "proof", ":="].iter().any(|marker| {
+        if !quoted
+            && (index == 0 || body[..index].ends_with(char::is_whitespace))
+            && ["by", "proof", ":="].iter().any(|marker| {
                 tail.strip_prefix(marker)
                     .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
-            }) {
-                end = index;
-                break;
-            }
+            })
+        {
+            end = index;
+            break;
         }
     }
     let statement = body[..end].trim();
@@ -477,6 +495,20 @@ fn suggest_next(t: &TacticTemplate) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extract_statement_preserves_nested_comments_and_the_conclusion() {
+        for statement in [
+            "\"True\" (* by *)",
+            "\"True\" (* proof (* by *) := *)",
+            "\"True\" (* \" by *) and \"False\"",
+        ] {
+            assert_eq!(
+                extract_statement(&format!("lemma foo: {statement} by simp")),
+                statement
+            );
+        }
+    }
     use crate::goal::parse_goal;
 
     #[test]

@@ -34,6 +34,14 @@ fn isabelle_preserves_and_checks_the_complete_goal() {
             true,
         ),
         (r#"lemma multiple: shows "True" and "False""#, false),
+        (
+            r#"lemma commented: "True" (* proof (* by *) := *) by simp"#,
+            true,
+        ),
+        (
+            r#"lemma commented_bad: "True" (* by *) and "False" by simp"#,
+            false,
+        ),
     ] {
         tactic.script = if goal.contains("assumes") {
             "using assms by simp"
