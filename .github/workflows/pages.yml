@@ -2,19 +2,18 @@
 # This workflow is managed by gh actions-lock.
 name: GitHub Pages (Ddraig SSG)
 on:
+  pull_request:
   push:
     branches: [main, master]
   workflow_dispatch:
 permissions:
-  actions: read
   contents: read
-  pages: write
-  id-token: write
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: false
 jobs:
   build:
+    name: Build Ddraig Pages artifact
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
@@ -22,28 +21,38 @@ jobs:
     steps:
       - name: Checkout Site
         uses: actions/checkout@v4.4.0
+        with:
+          persist-credentials: false
       - name: Checkout Ddraig SSG
         uses: actions/checkout@v4.4.0
         with:
           repository: hyperpolymath/ddraig-ssg
+          ref: 43e1b9c4c970994bc32313c3e2e21a5e0bba8f77
           path: .ddraig-ssg
+          persist-credentials: false
+      - name: Install documentation converters
+        run: apt-get update && apt-get install -y --no-install-recommends asciidoctor pandoc
       - name: Compile Ddraig
         working-directory: .ddraig-ssg
-        run: idris2 Ddraig.idr -o ddraig
+        run: idris2 Ddraig.idr -o ddraig && test -x build/exec/ddraig
       - name: Build site
         run: |
-          mkdir -p src
-          if [ ! -f src/index.md ] && [ -f README.md ]; then
-            cp README.md src/index.md
-          elif [ ! -f src/index.md ]; then
-            echo "# ${GITHUB_REPOSITORY}" > src/index.md
-          fi
-          ./.ddraig-ssg/build/exec/ddraig build src _site https://hyperpolymath.github.io/${GITHUB_REPOSITORY#*/}
+          set -eu
+          mkdir -p .site-src
+          asciidoctor -b docbook5 -o .site-src/readme.xml README.adoc
+          printf '# Proof Burrower\n\n' > .site-src/index.md
+          pandoc -f docbook -t gfm --shift-heading-level-by=1 .site-src/readme.xml >> .site-src/index.md
+          ./.ddraig-ssg/build/exec/ddraig build .site-src _site https://hyperpolymath.github.io/proof-burrower/
+          test -s _site/index.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3.0.1
         with:
           path: '_site'
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

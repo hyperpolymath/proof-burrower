@@ -56,7 +56,7 @@ rsr-template-repo/
 ├── README.adoc                # Project overview
 ├── [source/config files]      # Template scaffolding
 ├── .machine_readable/
-│   ├── 6a2/                   # A2ML files (6 files)
+│   ├── descriptiles/                   # A2ML files (6 files)
 │   │   ├── STATE.a2ml
 │   │   ├── META.a2ml
 │   │   ├── ECOSYSTEM.a2ml
