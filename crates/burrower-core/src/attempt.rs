@@ -127,8 +127,7 @@ pub struct ProofAttempt {
 ///
 /// The probe wraps the goal as a `lemma probe_lemma:` with the
 /// supplied tactic as the proof script. We strip the original lemma
-/// name + assumes/shows scaffolding and reformulate as a single
-/// `lemma probe_lemma: "<extracted statement>" <by ...>`.
+/// name and proof script while retaining assumptions and every conclusion.
 ///
 /// For complex goals this is best-effort. The function returns the
 /// probe text on success; callers write it to disk and pass the path
@@ -148,8 +147,9 @@ pub fn generate_probe(goal_text: &str, tactic: &TacticTemplate) -> String {
     )
 }
 
-/// Heuristic: extract the lemma statement (the part inside the outer
-/// quotes, or the whole text if quotes aren't present).
+/// Extract a simple Isabelle statement, retaining every quoted clause.
+/// This is not a complete Isabelle outer-syntax parser; unsupported syntax
+/// is retained for the real prover to reject rather than dropping clauses.
 ///
 /// Examples handled:
 ///   `lemma foo: "x + 0 = x" by simp`  → `"x + 0 = x"`
@@ -162,30 +162,58 @@ fn extract_statement(goal_text: &str) -> String {
     for kw in &lower_kws {
         if let Some(start) = goal_text.find(kw) {
             let rest = &goal_text[start + kw.len()..];
-            if let Some(c) = rest.find(':') {
+            if let Some(c) = rest.find(':').filter(|c| {
+                // A colon inside a quoted proposition (e.g. x::nat) is
+                // not the separator after a theorem name.
+                rest.find('"').is_none_or(|quote| *c < quote)
+            }) {
                 after_colon = Some(&rest[c + 1..]);
+                break;
+            } else if rest.trim_start().starts_with('"') {
+                after_colon = Some(rest);
                 break;
             }
         }
     }
     let body = after_colon.unwrap_or(goal_text).trim();
-    // If the body has a quoted segment, take the first quoted region.
-    if let Some(q1) = body.find('"') {
-        let after_q1 = &body[q1 + 1..];
-        if let Some(q2) = after_q1.find('"') {
-            return format!("\"{}\"", &after_q1[..q2]);
+    // Preserve the complete statement, including fixes/assumes/shows and
+    // multiple quoted propositions. Taking the first quote can silently
+    // replace the conclusion with an assumption. Stop at an existing proof
+    // command only outside quoted terms; Isabelle checks the retained syntax.
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut end = body.len();
+    for (index, ch) in body.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if quoted && ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == '"' {
+            quoted = !quoted;
+            continue;
+        }
+        if !quoted && (index == 0 || body[..index].ends_with(char::is_whitespace)) {
+            let tail = &body[index..];
+            if ["by", "proof", ":="].iter().any(|marker| {
+                tail.strip_prefix(marker).is_some_and(|rest| {
+                    rest.is_empty() || rest.starts_with(char::is_whitespace)
+                })
+            }) {
+                end = index;
+                break;
+            }
         }
     }
-    // No quotes — wrap the body up to the first `by`/`proof` marker.
-    let trimmed: String = body
-        .lines()
-        .take_while(|l| {
-            let t = l.trim_start();
-            !(t.starts_with("by ") || t.starts_with("proof") || t.starts_with(":="))
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!("\"{}\"", trimmed.trim())
+    let statement = body[..end].trim();
+    if statement.contains('"') {
+        statement.to_string()
+    } else {
+        format!("\"{}\"", statement)
+    }
 }
 
 /// Run a single probe through the prover. Returns the raw outcome.
@@ -266,7 +294,7 @@ pub fn run_probe(
             });
             let exit_failed = !o.status.success();
 
-            if says_success {
+            if says_success && !says_failure && !exit_failed {
                 AttemptResult::Succeeded { duration_ms: elapsed_ms }
             } else if says_failure || exit_failed {
                 let err_excerpt: String = combined_lines
@@ -456,6 +484,57 @@ mod tests {
     fn extract_statement_handles_no_proof_marker() {
         let s = extract_statement("lemma foo: \"y + y = 2 * y\"");
         assert_eq!(s, "\"y + y = 2 * y\"");
+    }
+
+    #[test]
+    fn extract_statement_preserves_assumptions_and_conclusion() {
+        let statement = "assumes \"True\" shows \"False\"";
+        assert_eq!(extract_statement(&format!("lemma bad: {statement} by simp")), statement);
+    }
+
+    #[test]
+    fn extract_statement_preserves_multiple_conclusions() {
+        assert_eq!(extract_statement("lemma bad: \"True\" and \"False\" by simp"),
+                   "\"True\" and \"False\"");
+    }
+
+    #[test]
+    fn extract_statement_keeps_type_annotation_in_anonymous_lemma() {
+        assert_eq!(extract_statement("lemma \"(x::nat) = x\" by simp"), "\"(x::nat) = x\"");
+    }
+
+    #[test]
+    fn extract_statement_keeps_proof_words_inside_terms() {
+        assert_eq!(extract_statement("lemma foo: \"by = proof\" by simp"), "\"by = proof\"");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn subprocess_failure_overrides_success_text() {
+        use std::os::unix::fs::PermissionsExt;
+        let workdir = std::env::temp_dir().join(format!(
+            "burrower-output-regression-{}-{}", std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir_all(&workdir).unwrap();
+        let executable = workdir.join("output-fixture.sh");
+        let config = ProverConfig {
+            echidna_path: executable.clone(), timeout_secs: 5,
+            workdir: Some(workdir.clone()), project_root: None, sandbox: "none".into(),
+        };
+        // These subprocesses test the output contract, not theorem proving.
+        for (diagnostic, exit, expected) in [
+            ("", 0, true),
+            ("", 1, false),
+            ("Proof verification failed", 0, false),
+        ] {
+            std::fs::write(&executable, format!(
+                "#!/bin/sh\nprintf 'Proof verified successfully\\n'\nprintf '{diagnostic}\\n' >&2\nexit {exit}\n"
+            )).unwrap();
+            std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+            assert_eq!(run_probe("fixture", &config, "fixture.thy").is_success(), expected);
+        }
+        std::fs::remove_dir_all(workdir).unwrap();
     }
 
     #[test]

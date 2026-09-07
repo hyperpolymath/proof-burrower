@@ -1,0 +1,61 @@
+# This workflow is managed by gh actions-lock.
+# SPDX-License-Identifier: MPL-2.0
+name: Proof Safety
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: proof-safety-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isabelle:
+    name: Burrower proof safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: hyperpolymath/echidna
+          ref: 556d64687a8872026c81e4689ac3d574c7acc6ce
+          path: _echidna
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          workspaces: |
+            . -> target
+            _echidna -> target
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto pkg-config libssl-dev
+      - name: Install checksum-verified Isabelle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 -o isabelle.tar.gz https://www.cl.cam.ac.uk/research/hvg/Isabelle/dist/Isabelle2025-2_linux.tar.gz
+          echo 'a20a507bc7c1270d8be96a9f3fbec06345387789d2dc2c4d3df6260d47bfb33c  isabelle.tar.gz' | sha256sum --check --strict
+          tar -xzf isabelle.tar.gz
+          echo "$RUNNER_TEMP/Isabelle2025-2/bin" >> "$GITHUB_PATH"
+          echo "USER_HOME=$RUNNER_TEMP/isabelle-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/isabelle-user/.isabelle/Isabelle2025-2/etc"
+          cat > "$RUNNER_TEMP/isabelle-user/.isabelle/Isabelle2025-2/etc/settings" <<'SETTINGS'
+          ISABELLE_TOOL_JAVA_OPTIONS="-Djava.awt.headless=true -Xms256m -Xmx1536m -Xss16m"
+          ML_OPTIONS="--minheap 256 --maxheap 2048"
+          SETTINGS
+      - name: Build ECHIDNA and run Burrower unit tests
+        run: |
+          cargo build --locked --manifest-path _echidna/Cargo.toml --bin echidna
+          cargo test --locked --workspace
+      - name: Require real accepted and rejected Isabelle goals
+        env:
+          ECHIDNA_BIN: ${{ github.workspace }}/_echidna/target/debug/echidna
+        run: |
+          isabelle version
+          cargo test --locked -p burrower-core --test live_isabelle -- --ignored --nocapture
