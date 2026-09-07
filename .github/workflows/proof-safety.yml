@@ -39,7 +39,12 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          curl --fail --location --retry 3 -o isabelle.tar.gz https://www.cl.cam.ac.uk/research/hvg/Isabelle/dist/Isabelle2025-2_linux.tar.gz
+          # Official release mirrors; both must match the same pinned archive.
+          # A mirror outage is retried with bounded connection/download times.
+          curl --fail --location --connect-timeout 20 --max-time 600 --retry 2 --retry-max-time 660 \
+            -o isabelle.tar.gz https://isabelle.in.tum.de/website-Isabelle2025-2/dist/Isabelle2025-2_linux.tar.gz || \
+          curl --fail --location --connect-timeout 20 --max-time 600 --retry 2 --retry-max-time 660 \
+            -o isabelle.tar.gz https://www.cl.cam.ac.uk/research/hvg/Isabelle/dist/Isabelle2025-2_linux.tar.gz
           echo 'a20a507bc7c1270d8be96a9f3fbec06345387789d2dc2c4d3df6260d47bfb33c  isabelle.tar.gz' | sha256sum --check --strict
           tar -xzf isabelle.tar.gz
           echo "$RUNNER_TEMP/Isabelle2025-2/bin" >> "$GITHUB_PATH"
