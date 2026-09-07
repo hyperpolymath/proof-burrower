@@ -12,8 +12,8 @@
 //! The exposed entry points take `*const u8` + `usize` length pairs
 //! for inputs (UTF-8 strings) and write outputs into a guest-supplied
 //! buffer, returning the number of bytes written (or a negative error
-//! code). This is the conservative ABI — no allocator, no globals,
-//! all data flows through caller-managed memory.
+//! code). Data flows through caller-managed memory; optional `alloc` and
+//! `dealloc` exports provide buffers for hosts without their own allocator.
 //!
 //! Future: ergonomic JS wrapper via `wasm-bindgen`. Today: minimal
 //! ABI to keep the artifact small and verifier-friendly.
@@ -54,6 +54,12 @@ unsafe fn write_str(s: &str, out_ptr: *mut u8, out_cap: usize) -> i32 {
 ///
 /// Parses a goal string and writes the JSON-serialised `Goal` into
 /// the output buffer.
+///
+/// # Safety
+/// A non-null `goal_ptr` with nonzero `goal_len` must reference that many
+/// initialized, readable bytes in one allocation. A non-null `out_ptr` must
+/// permit exclusive writes of up to `out_cap` bytes. Both regions must remain
+/// valid for this call; neither length may exceed `isize::MAX`.
 #[no_mangle]
 pub unsafe extern "C" fn parse_goal_json(
     goal_ptr: *const u8,
@@ -67,9 +73,15 @@ pub unsafe extern "C" fn parse_goal_json(
     write_str(&json, out_ptr, out_cap)
 }
 
-/// `goal_hash_hex(goal_ptr, goal_len, out_ptr, out_cap) -> 16` (always)
+/// `goal_hash_hex(goal_ptr, goal_len, out_ptr, out_cap) -> bytes_written`
 ///
-/// Computes the goal hash and writes 16 hex chars.
+/// Computes the goal hash and writes 16 hex chars, or returns a negative error.
+///
+/// # Safety
+/// A non-null `goal_ptr` with nonzero `goal_len` must reference that many
+/// initialized, readable bytes in one allocation. A non-null `out_ptr` must
+/// permit exclusive writes of up to `out_cap` bytes. Both regions must remain
+/// valid for this call; neither length may exceed `isize::MAX`.
 #[no_mangle]
 pub unsafe extern "C" fn goal_hash_hex(
     goal_ptr: *const u8,
@@ -82,7 +94,11 @@ pub unsafe extern "C" fn goal_hash_hex(
     write_str(&h, out_ptr, out_cap)
 }
 
-/// `version() -> bytes_written`. Writes the Burrower version into out_ptr.
+/// Writes the Burrower version into `out_ptr`, returning its length or an error.
+///
+/// # Safety
+/// A non-null `out_ptr` must permit exclusive writes of up to `out_cap` bytes
+/// within one live allocation; `out_cap` must not exceed `isize::MAX`.
 #[no_mangle]
 pub unsafe extern "C" fn version(out_ptr: *mut u8, out_cap: usize) -> i32 {
     write_str("burrower-core 0.0.1", out_ptr, out_cap)
@@ -101,18 +117,59 @@ pub extern "C" fn add(a: u32, b: u32) -> u32 {
 // `dealloc(ptr, n)` to free it.
 // ---------------------------------------------------------------------
 
+/// Allocate `n` uninitialized bytes, returning null for zero or allocation failure.
+/// The caller must initialize bytes before passing them to the input functions.
 #[no_mangle]
-pub unsafe extern "C" fn alloc(n: usize) -> *mut u8 {
-    let mut buf: Vec<u8> = Vec::with_capacity(n);
-    let ptr = buf.as_mut_ptr();
-    core::mem::forget(buf);
-    ptr
+pub extern "C" fn alloc(n: usize) -> *mut u8 {
+    if n == 0 {
+        return std::ptr::null_mut();
+    }
+    let Ok(layout) = std::alloc::Layout::array::<u8>(n) else {
+        return std::ptr::null_mut();
+    };
+    // SAFETY: the checked layout is nonzero and describes an allocation of bytes.
+    unsafe { std::alloc::alloc(layout) }
 }
 
+/// Release a buffer obtained from `alloc`, whether or not it was initialized.
+///
+/// # Safety
+/// For non-null `ptr` and nonzero `n`, `ptr` must be a live allocation returned
+/// by this module's `alloc(n)`, with exactly the same `n`. It must not be used
+/// after this call or freed more than once. Null or zero arguments are no-ops.
 #[no_mangle]
 pub unsafe extern "C" fn dealloc(ptr: *mut u8, n: usize) {
     if ptr.is_null() || n == 0 {
         return;
     }
-    let _ = Vec::from_raw_parts(ptr, n, n);
+    if let Ok(layout) = std::alloc::Layout::array::<u8>(n) {
+        std::alloc::dealloc(ptr, layout);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allocated_buffer_supports_output_and_uninitialized_release() {
+        let buffer = alloc(64);
+        assert!(!buffer.is_null());
+        // SAFETY: this buffer is live, exclusively owned, and has capacity 64.
+        unsafe {
+            let written = version(buffer, 64);
+            assert!(written > 0);
+            assert_eq!(
+                slice::from_raw_parts(buffer, written as usize),
+                b"burrower-core 0.0.1"
+            );
+            dealloc(buffer, 64);
+        }
+        let uninitialized = alloc(17);
+        assert!(!uninitialized.is_null());
+        // SAFETY: release the unchanged allocation with its original size.
+        unsafe { dealloc(uninitialized, 17) };
+        assert!(alloc(0).is_null());
+        assert!(alloc(usize::MAX).is_null());
+    }
 }

@@ -425,7 +425,7 @@ fn main() -> Result<()> {
             let corpus = Corpus::load(&index)?;
             let parsed = parse_goal(&goal);
             let swarm = Swarm::new();
-            let ledger_handle = ledger.as_ref().map(|p| Ledger::open(p)).transpose()?;
+            let ledger_handle = ledger.as_ref().map(Ledger::open).transpose()?;
             let readings = swarm.route_with_ledger(&parsed, &corpus, top, ledger_handle.as_ref());
             match format.as_str() {
                 "json" => {

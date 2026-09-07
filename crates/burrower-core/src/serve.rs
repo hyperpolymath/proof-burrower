@@ -207,7 +207,7 @@ fn handle_swarm(args: Value) -> Result<Value> {
         Corpus::load(&a.index).with_context(|| format!("load index from {}", a.index.display()))?;
     let parsed = parse_goal(&a.goal);
     let swarm = Swarm::new();
-    let ledger_handle = a.ledger.as_ref().map(|p| Ledger::open(p)).transpose()?;
+    let ledger_handle = a.ledger.as_ref().map(Ledger::open).transpose()?;
     let readings = swarm.route_with_ledger(&parsed, &corpus, a.top, ledger_handle.as_ref());
     let synthesis = swarm.synthesise(&readings);
     Ok(json!({

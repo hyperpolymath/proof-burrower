@@ -1,3 +1,4 @@
+K9!
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
@@ -8,6 +9,11 @@
 # Usage: k9 validate methodology-guard
 
 let methodology_guard = {
+  pedigree = {
+    name = "methodology-guard",
+    version = "1.0.0",
+    leash = 'Kennel,
+  },
   name = "methodology-guard",
   version = "1.0.0",
   description = "Validates that agent work respects declared methodology constraints",

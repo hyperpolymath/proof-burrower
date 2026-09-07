@@ -12,10 +12,10 @@
 //!
 //! Future versions:
 //! - v0.2: weight tokens by inverse document frequency (rare tokens
-//!         carry more signal).
+//!   carry more signal).
 //! - v0.3: tree-edit distance on parsed AST (requires real parsers).
 //! - v0.4: GNN embeddings (requires the trained model that ECHIDNA's
-//!         corpus is waiting for).
+//!   corpus is waiting for).
 
 use crate::corpus::{Corpus, IndexedLemma};
 use crate::goal::Goal;
