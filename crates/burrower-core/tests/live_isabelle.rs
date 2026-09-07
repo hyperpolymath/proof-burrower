@@ -39,7 +39,8 @@ fn isabelle_preserves_and_checks_the_complete_goal() {
             "using assms by simp"
         } else {
             "by simp"
-        }.into();
+        }
+        .into();
         let probe = generate_probe(goal, &tactic);
         let result = run_probe(&probe, &config, "Probe.thy");
         eprintln!("{goal}: {result:?}");

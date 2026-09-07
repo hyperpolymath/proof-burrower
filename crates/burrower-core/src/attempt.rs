@@ -93,11 +93,18 @@ impl Default for ProverConfig {
 /// Outcome of one proof attempt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AttemptResult {
-    Succeeded { duration_ms: u64 },
-    Failed { error: String, duration_ms: u64 },
+    Succeeded {
+        duration_ms: u64,
+    },
+    Failed {
+        error: String,
+        duration_ms: u64,
+    },
     Timeout,
     /// Prover binary missing, probe-file write failed, etc.
-    Skipped { reason: String },
+    Skipped {
+        reason: String,
+    },
 }
 
 impl AttemptResult {
@@ -199,9 +206,8 @@ fn extract_statement(goal_text: &str) -> String {
         if !quoted && (index == 0 || body[..index].ends_with(char::is_whitespace)) {
             let tail = &body[index..];
             if ["by", "proof", ":="].iter().any(|marker| {
-                tail.strip_prefix(marker).is_some_and(|rest| {
-                    rest.is_empty() || rest.starts_with(char::is_whitespace)
-                })
+                tail.strip_prefix(marker)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
             }) {
                 end = index;
                 break;
@@ -217,11 +223,7 @@ fn extract_statement(goal_text: &str) -> String {
 }
 
 /// Run a single probe through the prover. Returns the raw outcome.
-pub fn run_probe(
-    probe_text: &str,
-    config: &ProverConfig,
-    probe_filename: &str,
-) -> AttemptResult {
+pub fn run_probe(probe_text: &str, config: &ProverConfig, probe_filename: &str) -> AttemptResult {
     use std::fs;
     let workdir = config
         .workdir
@@ -282,11 +284,10 @@ pub fn run_probe(
             // generic-failure anti-patterns. We now scan BOTH streams and
             // also fall back on the exit code so a non-zero exit with no
             // standard marker still becomes Failed (not Inconclusive).
-            let combined_lines: Vec<&str> =
-                stdout.lines().chain(stderr.lines()).collect();
-            let says_success = combined_lines
-                .iter()
-                .any(|l| l.contains("Proof verified successfully") || l.contains("✓ Proof verified"));
+            let combined_lines: Vec<&str> = stdout.lines().chain(stderr.lines()).collect();
+            let says_success = combined_lines.iter().any(|l| {
+                l.contains("Proof verified successfully") || l.contains("✓ Proof verified")
+            });
             let says_failure = combined_lines.iter().any(|l| {
                 l.contains("Proof verification failed")
                     || l.contains("✗ Proof verification failed")
@@ -295,7 +296,9 @@ pub fn run_probe(
             let exit_failed = !o.status.success();
 
             if says_success && !says_failure && !exit_failed {
-                AttemptResult::Succeeded { duration_ms: elapsed_ms }
+                AttemptResult::Succeeded {
+                    duration_ms: elapsed_ms,
+                }
             } else if says_failure || exit_failed {
                 let err_excerpt: String = combined_lines
                     .iter()
@@ -351,9 +354,11 @@ pub fn run_playbook(
 
     for (i, tactic) in playbook.tactics.iter().enumerate() {
         let probe = generate_probe(&goal.raw, tactic);
-        let probe_filename = format!("probe_{}_{}.thy",
-                                      sanitize_filename(&playbook.specialist),
-                                      i);
+        let probe_filename = format!(
+            "probe_{}_{}.thy",
+            sanitize_filename(&playbook.specialist),
+            i
+        );
         let result = run_probe(&probe, config, &probe_filename);
 
         let attempt = ProofAttempt {
@@ -489,23 +494,34 @@ mod tests {
     #[test]
     fn extract_statement_preserves_assumptions_and_conclusion() {
         let statement = "assumes \"True\" shows \"False\"";
-        assert_eq!(extract_statement(&format!("lemma bad: {statement} by simp")), statement);
+        assert_eq!(
+            extract_statement(&format!("lemma bad: {statement} by simp")),
+            statement
+        );
     }
 
     #[test]
     fn extract_statement_preserves_multiple_conclusions() {
-        assert_eq!(extract_statement("lemma bad: \"True\" and \"False\" by simp"),
-                   "\"True\" and \"False\"");
+        assert_eq!(
+            extract_statement("lemma bad: \"True\" and \"False\" by simp"),
+            "\"True\" and \"False\""
+        );
     }
 
     #[test]
     fn extract_statement_keeps_type_annotation_in_anonymous_lemma() {
-        assert_eq!(extract_statement("lemma \"(x::nat) = x\" by simp"), "\"(x::nat) = x\"");
+        assert_eq!(
+            extract_statement("lemma \"(x::nat) = x\" by simp"),
+            "\"(x::nat) = x\""
+        );
     }
 
     #[test]
     fn extract_statement_keeps_proof_words_inside_terms() {
-        assert_eq!(extract_statement("lemma foo: \"by = proof\" by simp"), "\"by = proof\"");
+        assert_eq!(
+            extract_statement("lemma foo: \"by = proof\" by simp"),
+            "\"by = proof\""
+        );
     }
 
     #[cfg(unix)]
@@ -513,14 +529,21 @@ mod tests {
     fn subprocess_failure_overrides_success_text() {
         use std::os::unix::fs::PermissionsExt;
         let workdir = std::env::temp_dir().join(format!(
-            "burrower-output-regression-{}-{}", std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            "burrower-output-regression-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         std::fs::create_dir_all(&workdir).unwrap();
         let executable = workdir.join("output-fixture.sh");
         let config = ProverConfig {
-            echidna_path: executable.clone(), timeout_secs: 5,
-            workdir: Some(workdir.clone()), project_root: None, sandbox: "none".into(),
+            echidna_path: executable.clone(),
+            timeout_secs: 5,
+            workdir: Some(workdir.clone()),
+            project_root: None,
+            sandbox: "none".into(),
         };
         // These subprocesses test the output contract, not theorem proving.
         for (diagnostic, exit, expected) in [
@@ -532,7 +555,10 @@ mod tests {
                 "#!/bin/sh\nprintf 'Proof verified successfully\\n'\nprintf '{diagnostic}\\n' >&2\nexit {exit}\n"
             )).unwrap();
             std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
-            assert_eq!(run_probe("fixture", &config, "fixture.thy").is_success(), expected);
+            assert_eq!(
+                run_probe("fixture", &config, "fixture.thy").is_success(),
+                expected
+            );
         }
         std::fs::remove_dir_all(workdir).unwrap();
     }

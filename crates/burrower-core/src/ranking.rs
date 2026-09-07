@@ -41,8 +41,7 @@ pub fn rank(goal: &Goal, corpus: &Corpus, k: usize) -> Vec<Home> {
         .filter_map(|lemma| {
             let shared: BTreeSet<String> =
                 goal.tokens.intersection(&lemma.tokens).cloned().collect();
-            let union_count =
-                goal.tokens.union(&lemma.tokens).count();
+            let union_count = goal.tokens.union(&lemma.tokens).count();
             if union_count == 0 {
                 return None;
             }
@@ -82,7 +81,10 @@ mod tests {
             file: PathBuf::from("test"),
             line: 1,
             kind: LibraryKind::Isabelle,
-            tokens: tokens.iter().map(|s| s.to_string()).collect::<BTreeSet<_>>(),
+            tokens: tokens
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<BTreeSet<_>>(),
         }
     }
 
@@ -91,12 +93,12 @@ mod tests {
         let goal = parse_goal("lemma foo: \"trop_walks_sum A S \\<le> trop_walks_sum A T\"");
         let corpus = Corpus {
             lemmas: vec![
-                mk_lemma("trop_walks_sum_ge_member", &["trop_walks_sum", "path_weight"]),
-                mk_lemma("nat_add_comm", &["nat", "add", "comm"]),
                 mk_lemma(
-                    "trop_walks_sum_mono",
-                    &["trop_walks_sum", "mono", "subset"],
+                    "trop_walks_sum_ge_member",
+                    &["trop_walks_sum", "path_weight"],
                 ),
+                mk_lemma("nat_add_comm", &["nat", "add", "comm"]),
+                mk_lemma("trop_walks_sum_mono", &["trop_walks_sum", "mono", "subset"]),
             ],
         };
         let ranked = rank(&goal, &corpus, 3);

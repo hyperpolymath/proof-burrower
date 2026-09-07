@@ -26,27 +26,27 @@
 //! Future work: tree-edit distance on parsed AST (v2), GNN embeddings
 //! once the ECHIDNA corpus training lands (v3).
 
-pub mod goal;
-pub mod corpus;
-pub mod ranking;
-pub mod specialist;
-pub mod ledger;
 pub mod attempt;
-pub mod serve;
+pub mod corpus;
+pub mod goal;
+pub mod ledger;
 pub mod oracle;
+pub mod ranking;
+pub mod serve;
+pub mod specialist;
 
-pub use goal::{parse_goal, Goal};
-pub use corpus::{Corpus, IndexedLemma, LibraryKind};
-pub use ranking::{Home, rank};
-pub use specialist::{
-    Algebraist, Combinatorialist, ConsensusHome, OrderTheorist, Reading,
-    Specialist, Swarm, Synthesis,
-};
-pub use ledger::{
-    goal_hash, new_id, now_iso, record_reading,
-    Approach, Learning, Ledger, LedgerRecord, RecordResult,
-};
 pub use attempt::{
-    generate_probe, run_playbook, run_probe,
-    AttemptResult, Playbook, ProofAttempt, ProverConfig, TacticTemplate,
+    generate_probe, run_playbook, run_probe, AttemptResult, Playbook, ProofAttempt, ProverConfig,
+    TacticTemplate,
+};
+pub use corpus::{Corpus, IndexedLemma, LibraryKind};
+pub use goal::{parse_goal, Goal};
+pub use ledger::{
+    goal_hash, new_id, now_iso, record_reading, Approach, Learning, Ledger, LedgerRecord,
+    RecordResult,
+};
+pub use ranking::{rank, Home};
+pub use specialist::{
+    Algebraist, Combinatorialist, ConsensusHome, OrderTheorist, Reading, Specialist, Swarm,
+    Synthesis,
 };

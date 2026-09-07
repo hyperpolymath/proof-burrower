@@ -38,7 +38,7 @@
 //! See `proof-burrower/docs/ECHIDNA-INTEGRATION.adoc` §BI-1.
 
 use crate::{
-    attempt::{run_playbook, ProverConfig, TacticTemplate, Playbook},
+    attempt::{run_playbook, Playbook, ProverConfig, TacticTemplate},
     corpus::Corpus,
     goal::parse_goal,
     ledger::Ledger,
@@ -86,10 +86,18 @@ pub struct Response {
 
 impl Response {
     fn ok(result: Value) -> Self {
-        Self { ok: true, result: Some(result), error: None }
+        Self {
+            ok: true,
+            result: Some(result),
+            error: None,
+        }
     }
     fn err<E: std::fmt::Display>(e: E) -> Self {
-        Self { ok: false, result: None, error: Some(e.to_string()) }
+        Self {
+            ok: false,
+            result: None,
+            error: Some(e.to_string()),
+        }
     }
 }
 
@@ -104,10 +112,11 @@ pub fn run(socket_path: PathBuf) -> Result<()> {
     // Best-effort cleanup of any stale socket file.
     let _ = std::fs::remove_file(&socket_path);
 
-    let listener = UnixListener::bind(&socket_path).with_context(|| {
-        format!("failed to bind Unix socket at {}", socket_path.display())
-    })?;
-    let _guard = SocketGuard { path: socket_path.clone() };
+    let listener = UnixListener::bind(&socket_path)
+        .with_context(|| format!("failed to bind Unix socket at {}", socket_path.display()))?;
+    let _guard = SocketGuard {
+        path: socket_path.clone(),
+    };
 
     eprintln!(
         "burrower serve: listening on {} (line-delimited JSON; \
@@ -188,13 +197,14 @@ struct SwarmArgs {
     #[serde(default)]
     ledger: Option<PathBuf>,
 }
-fn default_top() -> usize { 5 }
+fn default_top() -> usize {
+    5
+}
 
 fn handle_swarm(args: Value) -> Result<Value> {
     let a: SwarmArgs = serde_json::from_value(args).map_err(|e| anyhow!("swarm args: {e}"))?;
-    let corpus = Corpus::load(&a.index).with_context(|| {
-        format!("load index from {}", a.index.display())
-    })?;
+    let corpus =
+        Corpus::load(&a.index).with_context(|| format!("load index from {}", a.index.display()))?;
     let parsed = parse_goal(&a.goal);
     let swarm = Swarm::new();
     let ledger_handle = a.ledger.as_ref().map(|p| Ledger::open(p)).transpose()?;
@@ -218,7 +228,9 @@ struct AttemptArgs {
     #[serde(default)]
     sandbox: Option<String>,
 }
-fn default_timeout() -> u32 { 60 }
+fn default_timeout() -> u32 {
+    60
+}
 
 fn handle_attempt(args: Value) -> Result<Value> {
     let a: AttemptArgs = serde_json::from_value(args).map_err(|e| anyhow!("attempt args: {e}"))?;
@@ -242,7 +254,9 @@ struct LedgerArgs {
     #[serde(default = "default_limit")]
     limit: usize,
 }
-fn default_limit() -> usize { 10 }
+fn default_limit() -> usize {
+    10
+}
 
 fn handle_ledger_recent(args: Value) -> Result<Value> {
     let a: LedgerArgs = serde_json::from_value(args).map_err(|e| anyhow!("ledger args: {e}"))?;
@@ -256,8 +270,15 @@ fn handle_ledger_recent(args: Value) -> Result<Value> {
 // the dispatch tree is wired below.
 #[allow(dead_code)]
 fn _force_use_of_imports() {
-    let _ = TacticTemplate { name: String::new(), script: String::new(), description: String::new() };
-    let _ = Playbook { specialist: String::new(), tactics: vec![] };
+    let _ = TacticTemplate {
+        name: String::new(),
+        script: String::new(),
+        description: String::new(),
+    };
+    let _ = Playbook {
+        specialist: String::new(),
+        tactics: vec![],
+    };
     let _: Option<Arc<()>> = None;
     let _ = run_playbook;
 }
