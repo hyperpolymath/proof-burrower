@@ -215,7 +215,7 @@ impl Manifest {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add manifest validation
 // - [ ] Add version validation (semver)
 // - [ ] Add license validation (SPDX)

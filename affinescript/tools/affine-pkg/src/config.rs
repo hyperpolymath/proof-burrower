@@ -226,7 +226,7 @@ impl Credentials {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add environment variable overrides
 // - [ ] Add configuration validation
 // - [ ] Add shell completion config

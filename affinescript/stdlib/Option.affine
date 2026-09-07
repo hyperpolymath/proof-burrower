@@ -29,7 +29,7 @@ pub fn unwrap[T](own opt: Option[T]) -> T {
   return match opt {
     Some(v) => { return v; },
     None => {
-      // TODO: panic
+      // TODO(#84): panic
       return 0;  // Placeholder
     }
   };

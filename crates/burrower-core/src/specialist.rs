@@ -81,12 +81,16 @@ pub trait Specialist {
         let kws: Vec<String> = self.keywords().iter().map(|s| s.to_lowercase()).collect();
         let mut witnesses: Vec<&String> = Vec::new();
         for kw in &kws {
-            if let Some(t) = goal.tokens.iter().find(|t| {
-                *t == kw || t.starts_with(&format!("{}_", kw)) || t.contains(kw)
-            }) {
+            if let Some(t) = goal
+                .tokens
+                .iter()
+                .find(|t| *t == kw || t.starts_with(&format!("{}_", kw)) || t.contains(kw))
+            {
                 witnesses.push(t);
             }
-            if witnesses.len() >= 5 { break; }
+            if witnesses.len() >= 5 {
+                break;
+            }
         }
         if witnesses.is_empty() {
             format!(
@@ -94,11 +98,7 @@ pub trait Specialist {
                 self.domain().to_lowercase()
             )
         } else {
-            format!(
-                "{} structure detected via {:?}",
-                self.domain(),
-                witnesses
-            )
+            format!("{} structure detected via {:?}", self.domain(), witnesses)
         }
     }
     /// Default relevance: how many of the specialist's keywords appear
@@ -116,9 +116,7 @@ pub trait Specialist {
             .filter(|kw| {
                 let kw_lc = kw.to_lowercase();
                 goal.tokens.iter().any(|t| {
-                    t == &kw_lc
-                        || t.starts_with(&format!("{}_", kw_lc))
-                        || t.contains(&kw_lc)
+                    t == &kw_lc || t.starts_with(&format!("{}_", kw_lc)) || t.contains(&kw_lc)
                 })
             })
             .count();
@@ -195,17 +193,49 @@ pub const MIN_DOMAIN_HITS: usize = 2;
 
 pub struct Algebraist;
 impl Specialist for Algebraist {
-    fn name(&self) -> &'static str { "Algebraist" }
-    fn domain(&self) -> &'static str { "Algebra" }
+    fn name(&self) -> &'static str {
+        "Algebraist"
+    }
+    fn domain(&self) -> &'static str {
+        "Algebra"
+    }
     fn keywords(&self) -> &'static [&'static str] {
         &[
-            "group", "ring", "field", "semiring", "monoid", "semigroup",
-            "ideal", "module", "vector", "homomorphism", "isomorphism",
-            "kernel", "image", "quotient", "polynomial", "matrix",
-            "abelian", "commutative", "associative", "distributive",
-            "identity", "inverse", "comm_monoid", "comm_semiring",
-            "tropical", "trop", "tropm", "plus", "mult", "add", "mul",
-            "zero", "one", "neginf", "fin",
+            "group",
+            "ring",
+            "field",
+            "semiring",
+            "monoid",
+            "semigroup",
+            "ideal",
+            "module",
+            "vector",
+            "homomorphism",
+            "isomorphism",
+            "kernel",
+            "image",
+            "quotient",
+            "polynomial",
+            "matrix",
+            "abelian",
+            "commutative",
+            "associative",
+            "distributive",
+            "identity",
+            "inverse",
+            "comm_monoid",
+            "comm_semiring",
+            "tropical",
+            "trop",
+            "tropm",
+            "plus",
+            "mult",
+            "add",
+            "mul",
+            "zero",
+            "one",
+            "neginf",
+            "fin",
         ]
     }
     fn playbook(&self) -> Playbook {
@@ -269,18 +299,49 @@ impl Specialist for Algebraist {
 
 pub struct OrderTheorist;
 impl Specialist for OrderTheorist {
-    fn name(&self) -> &'static str { "OrderTheorist" }
-    fn domain(&self) -> &'static str { "Order Theory" }
+    fn name(&self) -> &'static str {
+        "OrderTheorist"
+    }
+    fn domain(&self) -> &'static str {
+        "Order Theory"
+    }
     fn keywords(&self) -> &'static [&'static str] {
         &[
-            "le", "leq", "lt", "ge", "geq", "gt", "subseteq", "subset",
-            "linorder", "preorder", "order_bot", "order_top",
-            "lattice", "complete_lattice", "sup", "inf",
-            "monotone", "mono", "antitone", "cofinal",
-            "fixpoint", "lfp", "gfp", "least", "greatest",
-            "well_founded", "well_order", "chain", "directed",
-            "max", "min", "supremum", "infimum",
-            "absorb", "idempotent",
+            "le",
+            "leq",
+            "lt",
+            "ge",
+            "geq",
+            "gt",
+            "subseteq",
+            "subset",
+            "linorder",
+            "preorder",
+            "order_bot",
+            "order_top",
+            "lattice",
+            "complete_lattice",
+            "sup",
+            "inf",
+            "monotone",
+            "mono",
+            "antitone",
+            "cofinal",
+            "fixpoint",
+            "lfp",
+            "gfp",
+            "least",
+            "greatest",
+            "well_founded",
+            "well_order",
+            "chain",
+            "directed",
+            "max",
+            "min",
+            "supremum",
+            "infimum",
+            "absorb",
+            "idempotent",
         ]
     }
     fn playbook(&self) -> Playbook {
@@ -354,17 +415,45 @@ impl Specialist for OrderTheorist {
 
 pub struct Combinatorialist;
 impl Specialist for Combinatorialist {
-    fn name(&self) -> &'static str { "Combinatorialist" }
-    fn domain(&self) -> &'static str { "Combinatorics" }
+    fn name(&self) -> &'static str {
+        "Combinatorialist"
+    }
+    fn domain(&self) -> &'static str {
+        "Combinatorics"
+    }
     fn keywords(&self) -> &'static [&'static str] {
         &[
-            "finite", "card", "sum", "prod", "card_eq",
-            "set", "list", "seq", "permutation", "perm",
-            "walk", "walks", "path", "path_weight", "cycle",
-            "graph", "vertex", "edge", "tree", "forest",
-            "n_choose_k", "binomial", "factorial",
-            "induction", "induct", "base", "step",
-            "sigma", "union", "insert", "filter",
+            "finite",
+            "card",
+            "sum",
+            "prod",
+            "card_eq",
+            "set",
+            "list",
+            "seq",
+            "permutation",
+            "perm",
+            "walk",
+            "walks",
+            "path",
+            "path_weight",
+            "cycle",
+            "graph",
+            "vertex",
+            "edge",
+            "tree",
+            "forest",
+            "n_choose_k",
+            "binomial",
+            "factorial",
+            "induction",
+            "induct",
+            "base",
+            "step",
+            "sigma",
+            "union",
+            "insert",
+            "filter",
         ]
     }
     fn playbook(&self) -> Playbook {
@@ -464,7 +553,9 @@ impl Default for Swarm {
 }
 
 impl Swarm {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Add a specialist. Used by the planned 007 loader to register
     /// dynamically-defined agents.
@@ -580,9 +671,11 @@ impl Swarm {
             })
             .collect();
         consensus.sort_by(|a, b| {
-            b.votes
-                .cmp(&a.votes)
-                .then_with(|| b.weighted_score.partial_cmp(&a.weighted_score).unwrap_or(std::cmp::Ordering::Equal))
+            b.votes.cmp(&a.votes).then_with(|| {
+                b.weighted_score
+                    .partial_cmp(&a.weighted_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
         });
 
         let domains: Vec<String> = engaged.iter().map(|r| r.domain.clone()).collect();
@@ -595,10 +688,7 @@ impl Swarm {
                 domains.join(", ")
             )
         } else {
-            format!(
-                "Single-domain object: best read as {}.",
-                domains[0]
-            )
+            format!("Single-domain object: best read as {}.", domains[0])
         };
 
         Synthesis {
@@ -639,7 +729,8 @@ mod tests {
 
     #[test]
     fn algebraist_recognises_tropical_goal() {
-        let g = parse_goal("lemma trop_walks_sum_mono: trop_walks_sum A S \\<le> trop_walks_sum A T");
+        let g =
+            parse_goal("lemma trop_walks_sum_mono: trop_walks_sum A S \\<le> trop_walks_sum A T");
         let s = Algebraist;
         assert!(s.relevance(&g) > 0.0, "should engage on tropical content");
     }
@@ -666,12 +757,18 @@ mod tests {
         // Isabelle 2025-1 drift fixes (omega→linarith, sum.atLeastAtMost_Suc
         // deprecation, Fun.swap input-only). Lock in the new minimums so
         // future shrink-regressions are caught.
-        assert!(Algebraist.playbook().tactics.len() >= 10,
-            "Algebraist playbook should have ≥10 tactics post-2026-04-26 expansion");
-        assert!(OrderTheorist.playbook().tactics.len() >= 12,
-            "OrderTheorist playbook should have ≥12 tactics post-2026-04-26 expansion");
-        assert!(Combinatorialist.playbook().tactics.len() >= 12,
-            "Combinatorialist playbook should have ≥12 tactics post-2026-04-26 expansion");
+        assert!(
+            Algebraist.playbook().tactics.len() >= 10,
+            "Algebraist playbook should have ≥10 tactics post-2026-04-26 expansion"
+        );
+        assert!(
+            OrderTheorist.playbook().tactics.len() >= 12,
+            "OrderTheorist playbook should have ≥12 tactics post-2026-04-26 expansion"
+        );
+        assert!(
+            Combinatorialist.playbook().tactics.len() >= 12,
+            "Combinatorialist playbook should have ≥12 tactics post-2026-04-26 expansion"
+        );
     }
 
     #[test]
@@ -679,32 +776,56 @@ mod tests {
         // The Tropical_Semirings session-close added these specific tactics
         // because real failures pointed at them. They must stay named-and-
         // findable so a future ledger entry can cite them by name.
-        let names: Vec<String> = Combinatorialist.playbook().tactics
-            .iter().map(|t| t.name.clone()).collect();
-        assert!(names.iter().any(|n| n == "permutes-in-image"),
-            "Combinatorialist must carry the Det 153/207 fix");
-        assert!(names.iter().any(|n| n == "metis-append"),
-            "Combinatorialist must carry the Kleene 403 list-decomp fix");
-        assert!(names.iter().any(|n| n == "induction-arbitrary"),
-            "Combinatorialist must carry the Matrices_Full generalised-induction pattern");
+        let names: Vec<String> = Combinatorialist
+            .playbook()
+            .tactics
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        assert!(
+            names.iter().any(|n| n == "permutes-in-image"),
+            "Combinatorialist must carry the Det 153/207 fix"
+        );
+        assert!(
+            names.iter().any(|n| n == "metis-append"),
+            "Combinatorialist must carry the Kleene 403 list-decomp fix"
+        );
+        assert!(
+            names.iter().any(|n| n == "induction-arbitrary"),
+            "Combinatorialist must carry the Matrices_Full generalised-induction pattern"
+        );
     }
 
     #[test]
     fn order_theorist_carries_2025_drift_fixes() {
-        let names: Vec<String> = OrderTheorist.playbook().tactics
-            .iter().map(|t| t.name.clone()).collect();
-        assert!(names.iter().any(|n| n == "linarith"),
-            "OrderTheorist must carry linarith (omega→linarith drift in 2025-1)");
-        assert!(names.iter().any(|n| n == "force"),
-            "OrderTheorist must carry force (Kleene 403 list-decomp fallback)");
+        let names: Vec<String> = OrderTheorist
+            .playbook()
+            .tactics
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        assert!(
+            names.iter().any(|n| n == "linarith"),
+            "OrderTheorist must carry linarith (omega→linarith drift in 2025-1)"
+        );
+        assert!(
+            names.iter().any(|n| n == "force"),
+            "OrderTheorist must carry force (Kleene 403 list-decomp fallback)"
+        );
     }
 
     #[test]
     fn algebraist_carries_ac_simps_replacement() {
-        let names: Vec<String> = Algebraist.playbook().tactics
-            .iter().map(|t| t.name.clone()).collect();
-        assert!(names.iter().any(|n| n == "ac-simps"),
-            "Algebraist must carry ac-simps (replaces looping metis chains)");
+        let names: Vec<String> = Algebraist
+            .playbook()
+            .tactics
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        assert!(
+            names.iter().any(|n| n == "ac-simps"),
+            "Algebraist must carry ac-simps (replaces looping metis chains)"
+        );
     }
 
     #[test]

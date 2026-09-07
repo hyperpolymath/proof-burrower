@@ -1,4 +1,7 @@
 %A2ML
+# SPDX-License-Identifier: MPL-2.0
+project = "proof-burrower"
+schema_version = "1.0"
 - suppression:
     file: 'affinescript/tools/affine-doc/assets/search.js'
     rule: 'DynamicCodeExecution'
