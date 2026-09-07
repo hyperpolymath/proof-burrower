@@ -81,6 +81,7 @@ dependencies = [
  "burrower-core",
  "clap",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

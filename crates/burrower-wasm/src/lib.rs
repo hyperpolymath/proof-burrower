@@ -152,6 +152,82 @@ mod tests {
     use super::*;
 
     #[test]
+    fn abi_round_trips_goal_json_and_distinguishes_goal_hashes() {
+        let first = b"lemma preserved: assumes \"True\" shows \"False\"";
+        let second = b"lemma other: \"True\"";
+        let mut output = [0u8; 1024];
+        // SAFETY: the inputs and output are separate live byte arrays and all
+        // lengths are bounded by those allocations.
+        unsafe {
+            let count = parse_goal_json(
+                first.as_ptr(),
+                first.len(),
+                output.as_mut_ptr(),
+                output.len(),
+            );
+            assert!(count > 0);
+            let value: serde_json::Value =
+                serde_json::from_slice(&output[..count as usize]).unwrap();
+            assert_eq!(value["raw"], core::str::from_utf8(first).unwrap());
+            assert_eq!(value["language"], "isabelle");
+            assert!(value["tokens"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|t| t == "preserved"));
+            assert_eq!(
+                goal_hash_hex(first.as_ptr(), first.len(), output.as_mut_ptr(), 16),
+                16
+            );
+            let first_hash = output[..16].to_vec();
+            assert!(first_hash.iter().all(u8::is_ascii_hexdigit));
+            assert_eq!(
+                goal_hash_hex(second.as_ptr(), second.len(), output.as_mut_ptr(), 16),
+                16
+            );
+            assert_ne!(&output[..16], first_hash);
+            assert_eq!(
+                goal_hash_hex(first.as_ptr(), first.len(), output.as_mut_ptr(), 16),
+                16
+            );
+            assert_eq!(&output[..16], first_hash);
+        }
+        assert_eq!(add(u32::MAX, 1), 0);
+    }
+
+    #[test]
+    fn abi_rejects_short_or_null_outputs_without_writing_past_capacity() {
+        let mut output = [0xa5; 256];
+        let invalid_utf8 = [0xff, 0xfe];
+        // SAFETY: null pointers have defined error/no-op behavior here;
+        // all non-null pointers and capacities refer to live byte arrays.
+        unsafe {
+            assert_eq!(version(std::ptr::null_mut(), 0), -2);
+            assert_eq!(version(output.as_mut_ptr(), 1), -1);
+            assert_eq!(output, [0xa5; 256]);
+            assert_eq!(
+                goal_hash_hex(std::ptr::null(), 0, output.as_mut_ptr(), 15),
+                -1
+            );
+            assert_eq!(output, [0xa5; 256]);
+            let count = parse_goal_json(std::ptr::null(), 0, output.as_mut_ptr(), output.len());
+            assert!(count > 0);
+            let empty_json = output[..count as usize].to_vec();
+            let parsed: serde_json::Value = serde_json::from_slice(&empty_json).unwrap();
+            assert_eq!(parsed["raw"], "");
+            let invalid_count = parse_goal_json(
+                invalid_utf8.as_ptr(),
+                invalid_utf8.len(),
+                output.as_mut_ptr(),
+                output.len(),
+            );
+            assert_eq!(count, invalid_count);
+            assert_eq!(&output[..count as usize], empty_json);
+            dealloc(std::ptr::null_mut(), 0);
+        }
+    }
+
+    #[test]
     fn allocated_buffer_supports_output_and_uninitialized_release() {
         let buffer = alloc(64);
         assert!(!buffer.is_null());

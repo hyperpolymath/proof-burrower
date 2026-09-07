@@ -63,7 +63,9 @@ pub struct ProverConfig {
     pub echidna_path: PathBuf,
     /// Per-attempt timeout (passed to `echidna prove -t`).
     pub timeout_secs: u32,
-    /// Workdir for probe files. Defaults to `/tmp` if unset.
+    /// Parent directory for private, per-attempt probe directories.
+    /// Defaults to the system temporary directory. Each attempt cleans up
+    /// its own directory after the child exits.
     pub workdir: Option<PathBuf>,
     /// Project root for echidna's EI-1 `--project-root` flag (2026-04-26).
     /// When set, every probe is dispatched as
@@ -243,16 +245,29 @@ fn extract_statement(goal_text: &str) -> String {
 /// Run a single probe through the prover. Returns the raw outcome.
 pub fn run_probe(probe_text: &str, config: &ProverConfig, probe_filename: &str) -> AttemptResult {
     use std::fs;
-    let workdir = config
-        .workdir
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("/tmp/burrower_probes"));
-    if let Err(e) = fs::create_dir_all(&workdir) {
+    let filename = std::path::Path::new(probe_filename);
+    if filename.file_name() != Some(filename.as_os_str()) {
         return AttemptResult::Skipped {
-            reason: format!("workdir create failed: {e}"),
+            reason: "probe filename must be a single file name".into(),
         };
     }
-    let probe_path = workdir.join(probe_filename);
+    let workdir = match &config.workdir {
+        Some(parent) => fs::create_dir_all(parent).and_then(|()| {
+            tempfile::Builder::new()
+                .prefix("burrower-probe-")
+                .tempdir_in(parent)
+        }),
+        None => tempfile::Builder::new().prefix("burrower-probe-").tempdir(),
+    };
+    let workdir = match workdir {
+        Ok(dir) => dir,
+        Err(e) => {
+            return AttemptResult::Skipped {
+                reason: format!("workdir create failed: {e}"),
+            }
+        }
+    };
+    let probe_path = workdir.path().join(probe_filename);
     if let Err(e) = fs::write(&probe_path, probe_text) {
         return AttemptResult::Skipped {
             reason: format!("probe write failed: {e}"),
