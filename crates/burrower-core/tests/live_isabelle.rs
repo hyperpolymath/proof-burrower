@@ -4,6 +4,43 @@ use burrower_core::attempt::{
     generate_probe, run_probe, AttemptResult, ProverConfig, TacticTemplate,
 };
 
+// These fixtures all leave an unproved Isabelle goal. Generic process errors,
+// missing executables, malformed theories and inconclusive output are not
+// evidence that Isabelle rejected the mathematical obligation.
+fn is_isabelle_rejection(result: &AttemptResult) -> bool {
+    matches!(result, AttemptResult::Failed { error, .. }
+        if error.contains("Failed to finish proof") && error.contains("goal ("))
+}
+
+#[test]
+fn negative_control_requires_an_unproved_goal_diagnostic() {
+    for result in [
+        AttemptResult::Failed {
+            error: "exit 1 — no standard diagnostic captured".into(),
+            duration_ms: 0,
+        },
+        AttemptResult::Failed {
+            error: "inconclusive output (no success/failure marker, exit 0)".into(),
+            duration_ms: 0,
+        },
+        AttemptResult::Failed {
+            error: "error: malformed theory".into(),
+            duration_ms: 0,
+        },
+        AttemptResult::Skipped {
+            reason: "missing executable".into(),
+        },
+        AttemptResult::Timeout,
+        AttemptResult::Succeeded { duration_ms: 0 },
+    ] {
+        assert!(!is_isabelle_rejection(&result), "{result:?}");
+    }
+    assert!(is_isabelle_rejection(&AttemptResult::Failed {
+        error: "*** Failed to finish proof | *** goal (1 subgoal): | *** 1. False".into(),
+        duration_ms: 1,
+    }));
+}
+
 #[test]
 #[ignore = "requires ECHIDNA_BIN and Isabelle; required explicitly by Proof Safety CI"]
 fn isabelle_preserves_and_checks_the_complete_goal() {
@@ -58,7 +95,10 @@ fn isabelle_preserves_and_checks_the_complete_goal() {
                 "{result:?}"
             );
         } else {
-            assert!(matches!(result, AttemptResult::Failed { .. }), "{result:?}");
+            assert!(
+                is_isabelle_rejection(&result),
+                "not an Isabelle proof rejection: {result:?}"
+            );
         }
     }
 }

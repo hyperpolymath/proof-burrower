@@ -92,7 +92,7 @@ Run this pass at the end of a corrective/adaptive/perfective cycle:
   - `.github/CODEOWNERS`
 - [ ] Keep machine-readable canonical structure under `.machine_readable/`:
   - state/meta/ecosystem files (`*.a2ml` or repo standard)
-  - `anchors/ANCHOR.a2ml`
+  - `descriptiles/anchor/ANCHOR.a2ml`
   - `descriptiles/` for the canonical project descriptors
   - `contractiles/` (`must`, `trust`, `lust`, and related)
   - `ai/` for AI guidance files
