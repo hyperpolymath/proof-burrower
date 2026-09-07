@@ -117,8 +117,8 @@ esac
     };
     let goal = parse_goal("lemma preserved: assumes \"True\" shows \"False\"");
     let attempts = run_playbook(&goal, &playbook, &cfg, Some(&ledger)).unwrap();
-    assert!(attempts[0].result.is_success());
-    assert!(!attempts[1].result.is_success());
+    assert!(attempts[0].result.is_success(), "{:?}", attempts[0]);
+    assert!(!attempts[1].result.is_success(), "{:?}", attempts[1]);
     let records = ledger.read_all().unwrap();
     assert_eq!(records.len(), 2);
     assert_ne!(records[0].id, records[1].id);
