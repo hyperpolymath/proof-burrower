@@ -211,7 +211,7 @@ fn first_line(text: &str) -> String {
         .to_string()
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Use Tantivy for full-text search
 // - [ ] Add fuzzy matching
 // - [ ] Add type signature search

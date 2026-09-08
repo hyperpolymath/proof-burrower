@@ -131,7 +131,7 @@ static mut HANDLER_STACK: HandlerStack = HandlerStack {
 
 /// Initialize the effect system
 pub fn init() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Set up initial handler frame
     // - [ ] Install default handlers for built-in effects
     // - [ ] Initialize continuation pool
@@ -149,7 +149,7 @@ pub fn init() {
 /// Opaque handle for uninstalling
 #[no_mangle]
 pub extern "C" fn install_handler(handler: *mut Handler, evidence: *mut Evidence) -> u32 {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Push handler onto stack
     // - [ ] Set up evidence
     // - [ ] Return handle
@@ -164,7 +164,7 @@ pub extern "C" fn install_handler(handler: *mut Handler, evidence: *mut Evidence
 /// * `handle` - Handle returned by `install_handler`
 #[no_mangle]
 pub extern "C" fn uninstall_handler(handle: u32) {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Pop handler from stack
     // - [ ] Restore previous evidence
 }
@@ -182,7 +182,7 @@ pub extern "C" fn uninstall_handler(handle: u32) {
 /// Result of the operation
 #[no_mangle]
 pub extern "C" fn perform(evidence: *mut Evidence, op_index: u32, arg: *mut ()) -> *mut () {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Look up handler in evidence
     // - [ ] Create continuation
     // - [ ] Call handler with continuation
@@ -202,7 +202,7 @@ pub extern "C" fn perform(evidence: *mut Evidence, op_index: u32, arg: *mut ()) 
 /// Result of resuming
 #[no_mangle]
 pub extern "C" fn resume(k: *mut Continuation, value: *mut ()) -> *mut () {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Check if continuation is linear and already used
     // - [ ] Restore execution state
     // - [ ] Jump to continuation point
@@ -218,14 +218,14 @@ pub extern "C" fn resume(k: *mut Continuation, value: *mut ()) -> *mut () {
 /// * `value` - Value to return
 #[no_mangle]
 pub extern "C" fn abort_effect(evidence: *mut Evidence, value: *mut ()) -> ! {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Unwind to handler frame
     // - [ ] Call return clause
 
     loop {}
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Implement evidence passing transform in codegen
 // - [ ] Implement handler frame management
 // - [ ] Implement one-shot continuation optimization
