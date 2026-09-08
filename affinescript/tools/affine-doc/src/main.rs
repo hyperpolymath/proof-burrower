@@ -93,7 +93,7 @@ fn main() -> anyhow::Result<()> {
             document_private,
             include_deps,
         } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Parse source files
             // - [ ] Extract documentation
             // - [ ] Generate HTML
@@ -106,7 +106,7 @@ fn main() -> anyhow::Result<()> {
 
         #[cfg(feature = "serve")]
         Commands::Serve { dir, port } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Start HTTP server
             // - [ ] Serve static files
             // - [ ] Handle search API
@@ -115,7 +115,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         Commands::Index { dir } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Scan HTML files
             // - [ ] Extract content
             // - [ ] Build Tantivy index
@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Parse AffineScript source and extract types/functions
 // - [ ] Process doc comments (Markdown)
 // - [ ] Generate HTML with templates

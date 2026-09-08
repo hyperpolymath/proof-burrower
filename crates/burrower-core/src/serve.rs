@@ -38,29 +38,36 @@
 //! See `proof-burrower/docs/ECHIDNA-INTEGRATION.adoc` §BI-1.
 
 use crate::{
-    attempt::{run_playbook, ProverConfig, TacticTemplate, Playbook},
-    corpus::Corpus,
-    goal::parse_goal,
-    ledger::Ledger,
-    specialist::Swarm,
+    attempt::ProverConfig, corpus::Corpus, goal::parse_goal, ledger::Ledger, specialist::Swarm,
 };
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::thread;
 
 /// Cleanup guard — removes the socket file when the listener drops.
 pub struct SocketGuard {
     path: PathBuf,
+    device: u64,
+    inode: u64,
 }
 
 impl Drop for SocketGuard {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        // A caller may have removed or replaced the path while we ran.
+        // Never unlink a regular file, symlink or another listener's socket.
+        if let Ok(metadata) = std::fs::symlink_metadata(&self.path) {
+            if metadata.file_type().is_socket()
+                && metadata.dev() == self.device
+                && metadata.ino() == self.inode
+            {
+                let _ = std::fs::remove_file(&self.path);
+            }
+        }
     }
 }
 
@@ -86,28 +93,45 @@ pub struct Response {
 
 impl Response {
     fn ok(result: Value) -> Self {
-        Self { ok: true, result: Some(result), error: None }
+        Self {
+            ok: true,
+            result: Some(result),
+            error: None,
+        }
     }
     fn err<E: std::fmt::Display>(e: E) -> Self {
-        Self { ok: false, result: None, error: Some(e.to_string()) }
+        Self {
+            ok: false,
+            result: None,
+            error: Some(e.to_string()),
+        }
     }
 }
 
-/// Bind a Unix listener at `socket_path` and accept connections in a
-/// loop. Each connection spawns a handler thread that reads one JSON
-/// line, dispatches, and writes one JSON line response.
-///
-/// Returns when the listener errors fatally (the socket guard cleans
-/// up on drop). Designed to be invoked from `burrower serve --socket
-/// /tmp/burrower.sock`.
-pub fn run(socket_path: PathBuf) -> Result<()> {
-    // Best-effort cleanup of any stale socket file.
-    let _ = std::fs::remove_file(&socket_path);
+/// Bind a new socket without replacing an occupied path.
+fn bind(socket_path: PathBuf) -> Result<(UnixListener, SocketGuard)> {
+    // Refuse occupied paths, including live or stale sockets. An operator
+    // must explicitly remove a stale socket; startup never removes user data.
+    let listener = UnixListener::bind(&socket_path)
+        .with_context(|| format!("failed to bind Unix socket at {}", socket_path.display()))?;
+    let metadata = std::fs::symlink_metadata(&socket_path)?;
+    Ok((
+        listener,
+        SocketGuard {
+            path: socket_path,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        },
+    ))
+}
 
-    let listener = UnixListener::bind(&socket_path).with_context(|| {
-        format!("failed to bind Unix socket at {}", socket_path.display())
-    })?;
-    let _guard = SocketGuard { path: socket_path.clone() };
+/// Serve one JSON-line request per connection on a Unix socket.
+///
+/// Binding fails if the path already exists. Operators must explicitly
+/// remove stale sockets before restarting. Each accepted connection runs
+/// in its own thread; transient accept errors are logged and retried.
+pub fn run(socket_path: PathBuf) -> Result<()> {
+    let (listener, _guard) = bind(socket_path.clone())?;
 
     eprintln!(
         "burrower serve: listening on {} (line-delimited JSON; \
@@ -188,16 +212,17 @@ struct SwarmArgs {
     #[serde(default)]
     ledger: Option<PathBuf>,
 }
-fn default_top() -> usize { 5 }
+fn default_top() -> usize {
+    5
+}
 
 fn handle_swarm(args: Value) -> Result<Value> {
     let a: SwarmArgs = serde_json::from_value(args).map_err(|e| anyhow!("swarm args: {e}"))?;
-    let corpus = Corpus::load(&a.index).with_context(|| {
-        format!("load index from {}", a.index.display())
-    })?;
+    let corpus =
+        Corpus::load(&a.index).with_context(|| format!("load index from {}", a.index.display()))?;
     let parsed = parse_goal(&a.goal);
     let swarm = Swarm::new();
-    let ledger_handle = a.ledger.as_ref().map(|p| Ledger::open(p)).transpose()?;
+    let ledger_handle = a.ledger.as_ref().map(Ledger::open).transpose()?;
     let readings = swarm.route_with_ledger(&parsed, &corpus, a.top, ledger_handle.as_ref());
     let synthesis = swarm.synthesise(&readings);
     Ok(json!({
@@ -218,7 +243,9 @@ struct AttemptArgs {
     #[serde(default)]
     sandbox: Option<String>,
 }
-fn default_timeout() -> u32 { 60 }
+fn default_timeout() -> u32 {
+    60
+}
 
 fn handle_attempt(args: Value) -> Result<Value> {
     let a: AttemptArgs = serde_json::from_value(args).map_err(|e| anyhow!("attempt args: {e}"))?;
@@ -242,7 +269,9 @@ struct LedgerArgs {
     #[serde(default = "default_limit")]
     limit: usize,
 }
-fn default_limit() -> usize { 10 }
+fn default_limit() -> usize {
+    10
+}
 
 fn handle_ledger_recent(args: Value) -> Result<Value> {
     let a: LedgerArgs = serde_json::from_value(args).map_err(|e| anyhow!("ledger args: {e}"))?;
@@ -251,13 +280,117 @@ fn handle_ledger_recent(args: Value) -> Result<Value> {
     Ok(serde_json::to_value(&recs)?)
 }
 
-// Suppress "unused" warnings when the swarm-attempt path isn't compiled
-// in (e.g. minimal embeddings). Marker — these imports are real once
-// the dispatch tree is wired below.
-#[allow(dead_code)]
-fn _force_use_of_imports() {
-    let _ = TacticTemplate { name: String::new(), script: String::new(), description: String::new() };
-    let _ = Playbook { specialist: String::new(), tactics: vec![] };
-    let _: Option<Arc<()>> = None;
-    let _ = run_playbook;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Shutdown;
+    use std::time::Duration;
+
+    #[test]
+    fn listener_never_unlinks_occupied_or_replaced_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("service.sock");
+        std::fs::write(&path, "existing user data").unwrap();
+        assert!(run(path.clone()).is_err());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "existing user data"
+        );
+        std::fs::remove_file(&path).unwrap();
+        let (listener, guard) = bind(path.clone()).unwrap();
+        assert!(bind(path.clone()).is_err());
+        let client = UnixStream::connect(&path).unwrap();
+        let (stream, _) = listener.accept().unwrap();
+        drop((client, stream, listener, guard));
+        assert!(!path.exists());
+        let (listener, guard) = bind(path.clone()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        std::fs::write(&path, "replacement data").unwrap();
+        drop((listener, guard));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "replacement data");
+    }
+
+    fn exchange(request: &str) -> Value {
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let handler = thread::spawn(move || handle_connection(server));
+        writeln!(client, "{request}").unwrap();
+        client.shutdown(Shutdown::Write).unwrap();
+        let mut response = String::new();
+        BufReader::new(client).read_line(&mut response).unwrap();
+        handler.join().unwrap().unwrap();
+        serde_json::from_str(&response).unwrap()
+    }
+
+    #[test]
+    fn socket_envelopes_reject_malformed_unknown_and_incomplete_requests() {
+        assert_eq!(
+            exchange(r#"{"cmd":"ping"}"#),
+            json!({"ok":true,"result":{"pong":true}})
+        );
+        for request in [
+            "not json",
+            r#"{"cmd":"unknown"}"#,
+            r#"{"cmd":"swarm"}"#,
+            r#"{"cmd":"attempt"}"#,
+            r#"{"cmd":"ledger"}"#,
+        ] {
+            let response = exchange(request);
+            assert_eq!(response["ok"], false, "{response}");
+            assert!(response["error"].as_str().unwrap().len() > 5);
+            assert!(response.get("result").is_none());
+        }
+        let (client, server) = UnixStream::pair().unwrap();
+        drop(client);
+        handle_connection(server).unwrap();
+    }
+
+    #[test]
+    fn socket_swarm_and_ledger_use_requested_storage_and_provenance() {
+        let dir = tempfile::tempdir().unwrap();
+        let index = dir.path().join("corpus.json");
+        Corpus::default().save(&index).unwrap();
+        let ledger = dir.path().join("readings.jsonl");
+        let goal = "lemma ordered: \"finite walks ∧ tropical_add x y ≤ x\"";
+        let response = exchange(
+            &json!({"cmd":"swarm","args":{"goal":goal,"index":index,"ledger":ledger}}).to_string(),
+        );
+        assert_eq!(response["ok"], true, "{response}");
+        assert_eq!(response["result"]["readings"].as_array().unwrap().len(), 3);
+        assert!(response["result"]["synthesis"]["summary"].is_string());
+        let records = Ledger::open(&ledger).unwrap().read_all().unwrap();
+        assert_eq!(records.len(), 3);
+        assert!(records.iter().all(|r| r.goal_excerpt == goal));
+        let recent =
+            exchange(&json!({"cmd":"ledger","args":{"path":ledger,"limit":1}}).to_string());
+        assert_eq!(recent["ok"], true);
+        assert_eq!(recent["result"].as_array().unwrap().len(), 1);
+        assert_eq!(recent["result"][0]["id"], records[2].id);
+        let defaults = exchange(&json!({"cmd":"ledger","args":{"path":ledger}}).to_string());
+        assert_eq!(defaults["result"].as_array().unwrap().len(), 3);
+        let missing = exchange(
+            &json!({"cmd":"swarm","args":{"goal":goal,"index":dir.path().join("missing")}})
+                .to_string(),
+        );
+        assert_eq!(missing["ok"], false);
+    }
+
+    #[test]
+    fn socket_attempt_keeps_missing_prover_as_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let ledger = dir.path().join("attempts.jsonl");
+        let response = exchange(&json!({"cmd":"attempt","args":{"goal":"tropical_add x y ≤ x","echidna":dir.path().join("missing-prover"),"ledger":ledger}}).to_string());
+        assert_eq!(response["ok"], true, "{response}");
+        let attempts = response["result"].as_array().unwrap();
+        assert!(!attempts.is_empty());
+        assert!(attempts
+            .iter()
+            .all(|a| a["result"].get("Skipped").is_some()));
+        assert_eq!(
+            Ledger::open(&ledger).unwrap().read_all().unwrap().len(),
+            attempts.len()
+        );
+    }
 }

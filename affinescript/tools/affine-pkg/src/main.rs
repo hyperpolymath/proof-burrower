@@ -176,7 +176,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::New { name, lib } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Create directory structure
             // - [ ] Generate affine.toml
             // - [ ] Create src/main.afs or src/lib.afs
@@ -184,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Init { name, lib } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Generate affine.toml in current directory
             // - [ ] Create src/ directory
             let _ = (name, lib);
@@ -192,7 +192,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Build { release, package } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Load manifest
             // - [ ] Resolve dependencies
             // - [ ] Compile all packages
@@ -201,14 +201,14 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Check { package } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Type check without codegen
             let _ = package;
             println!("Checking...");
         }
 
         Commands::Run { release, args } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Build if needed
             // - [ ] Run the binary
             let _ = (release, args);
@@ -216,7 +216,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Test { filter, release } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Find test functions
             // - [ ] Build test binary
             // - [ ] Run tests
@@ -225,7 +225,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Add { dependency, dev, build } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Parse dependency spec
             // - [ ] Resolve version
             // - [ ] Update manifest
@@ -235,14 +235,14 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Remove { dependency } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Remove from manifest
             // - [ ] Update lockfile
             println!("Removing dependency: {}", dependency);
         }
 
         Commands::Update { package } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Resolve latest compatible versions
             // - [ ] Update lockfile
             let _ = package;
@@ -250,7 +250,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Install => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Read lockfile
             // - [ ] Download missing packages
             // - [ ] Link to content store
@@ -258,7 +258,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Publish { dry_run } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Verify package
             // - [ ] Build tarball
             // - [ ] Upload to registry
@@ -267,41 +267,41 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Search { query } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Query registry API
             // - [ ] Display results
             println!("Searching for: {}", query);
         }
 
         Commands::Info { package } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Fetch package info
             // - [ ] Display metadata
             println!("Package info: {}", package);
         }
 
         Commands::Clean => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Remove target/ directory
             println!("Cleaning...");
         }
 
         Commands::Fmt { check } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Run formatter
             let _ = check;
             println!("Formatting...");
         }
 
         Commands::Lint { fix } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Run linter
             let _ = fix;
             println!("Linting...");
         }
 
         Commands::Doc { open } => {
-            // TODO: Phase 8 implementation
+            // TODO(#84): Phase 8 implementation
             // - [ ] Generate docs
             // - [ ] Open in browser if requested
             let _ = open;
@@ -312,7 +312,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Implement manifest parsing (affine.toml)
 // - [ ] Implement dependency resolution (SAT solver or PubGrub)
 // - [ ] Implement content-addressed storage

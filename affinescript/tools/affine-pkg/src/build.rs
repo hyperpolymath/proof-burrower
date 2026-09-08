@@ -100,7 +100,7 @@ impl Builder {
         let _package_dir = package_dir.as_ref();
         let start = std::time::Instant::now();
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Load manifest
         // - [ ] Resolve dependencies
         // - [ ] Build dependencies first
@@ -120,7 +120,7 @@ impl Builder {
     pub fn check(&self, package_dir: impl AsRef<Path>) -> anyhow::Result<Vec<String>> {
         let _package_dir = package_dir.as_ref();
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Load manifest
         // - [ ] Parse all source files
         // - [ ] Type check
@@ -140,7 +140,7 @@ impl Builder {
         let _package_dir = package_dir.as_ref();
         let _filter = filter;
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Find test functions (annotated with #[test])
         // - [ ] Build test binary
         // - [ ] Run tests
@@ -160,7 +160,7 @@ impl Builder {
         let package_dir = package_dir.as_ref();
         let output_dir = self.config.target_dir.join("doc");
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Parse source files
         // - [ ] Extract doc comments
         // - [ ] Generate HTML
@@ -225,7 +225,7 @@ pub struct TestFailure {
     pub location: Option<String>,
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Implement incremental compilation
 // - [ ] Add dependency tracking
 // - [ ] Add parallel compilation

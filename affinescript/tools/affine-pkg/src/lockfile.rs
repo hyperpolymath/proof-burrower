@@ -140,7 +140,7 @@ impl Default for Lockfile {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add checksum verification
 // - [ ] Add lockfile merging (for conflicts)
 // - [ ] Add lockfile diffing
