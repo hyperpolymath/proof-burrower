@@ -29,7 +29,7 @@ pub fn unwrap[T, E](own r: Result[T, E]) -> T {
   return match r {
     Ok(v) => { return v; },
     Err(_) => {
-      // TODO: panic with error message
+      // TODO(#84): panic with error message
       return 0;  // Placeholder
     }
   };
@@ -47,7 +47,7 @@ pub fn unwrap_or[T, E](own r: Result[T, E], default: T) -> T {
 pub fn unwrap_err[T, E](own r: Result[T, E]) -> E {
   return match r {
     Ok(_) => {
-      // TODO: panic
+      // TODO(#84): panic
       return 0;  // Placeholder
     },
     Err(e) => { return e; }

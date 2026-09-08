@@ -3,7 +3,7 @@
 
 module types.d;
 
-// TODO: Complete semantic implementation
+// TODO(#84): Complete semantic implementation
 
 /* === ORIGINAL TYPESCRIPT CONTEXT ===
 // SPDX-License-Identifier: MPL-2.0

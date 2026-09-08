@@ -1,9 +1,9 @@
 (* SPDX-License-Identifier: MPL-2.0 *)
 (* AffineScript Source Code Formatter - Stub Implementation
 
-   TODO: Implement code formatting.
+   TODO(#84): Implement code formatting.
 *)
 
-(** Format a source file - STUB *)
+(** Format a source file - STUB(#84) *)
 let format_file (_path : string) : unit =
   failwith "Code formatting not yet implemented"

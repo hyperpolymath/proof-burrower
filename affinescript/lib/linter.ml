@@ -137,7 +137,7 @@ let rec has_effects (ctx : context) (e : expr) : bool =
     (match Symbol.lookup ctx.symbols id.name with
     | Some entry ->
       (match entry.sym_kind with
-      | SKFunction -> (* TODO: check function signature for effects *) false
+      | SKFunction -> (* TODO(#84): check function signature for effects *) false
       | _ -> false)
     | None -> false)
   | ExprHandle _ -> true
@@ -230,7 +230,7 @@ and span_of_expr (e : expr) : Span.t =
   | ExprLit (LitChar (_, s)) -> s
   | ExprLit (LitString (_, s)) -> s
   | ExprLit (LitUnit s) -> s
-  | _ -> Span.dummy (* TODO: add spans to all expressions *)
+  | _ -> Span.dummy (* TODO(#84): add spans to all expressions *)
 
 and span_of_pattern (pat : pattern) : Span.t =
   match pat with
@@ -240,7 +240,7 @@ and span_of_pattern (pat : pattern) : Span.t =
     (match lit with
     | LitInt (_, s) | LitFloat (_, s) | LitBool (_, s)
     | LitChar (_, s) | LitString (_, s) | LitUnit s -> s)
-  | _ -> Span.dummy (* TODO: add spans to all patterns *)
+  | _ -> Span.dummy (* TODO(#84): add spans to all patterns *)
 
 (** Lint expression *)
 let rec lint_expr (ctx : context) (e : expr) : unit =
@@ -325,7 +325,7 @@ let rec lint_expr (ctx : context) (e : expr) : unit =
     Option.iter (List.iter (fun arm -> lint_expr ctx arm.ma_body)) et_catch;
     Option.iter (fun blk -> List.iter (lint_stmt ctx) blk.blk_stmts) et_finally
 
-  | ExprUnsafe _ -> () (* TODO: lint unsafe operations *)
+  | ExprUnsafe _ -> () (* TODO(#84): lint unsafe operations *)
   | ExprRowRestrict (e, _) -> lint_expr ctx e
   | ExprSpan (e, _) -> lint_expr ctx e
   | ExprLit _ | ExprVariant _ -> ()
