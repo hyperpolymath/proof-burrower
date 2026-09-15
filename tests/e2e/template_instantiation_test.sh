@@ -112,6 +112,8 @@ replace_placeholder() {
 }
 
 # Replace in all text files
+export TEST_REPO_NAME TEST_OWNER TEST_FORGE TEST_PROJECT_NAME \
+    TEST_DESCRIPTION TEST_PRIMARY_LANGUAGE TEST_AUTHOR TEST_AUTHOR_EMAIL
 find "$TEST_REPO_PATH" -type f \
     \( -name "*.md" -o -name "*.adoc" -o -name "*.a2ml" -o -name "*.zig" -o -name "*.idr" \
        -o -name "Justfile" -o -name "Containerfile" -o -name "*.yml" -o -name "*.yaml" \
@@ -137,7 +139,7 @@ find "$TEST_REPO_PATH" -type f \
                 sed -i "s|$placeholder|$value|g" "$file"
             fi
         done
-    ' _ "$file"
+    ' _ {} \;
 
 log_pass "All placeholder tokens replaced"
 
@@ -234,8 +236,8 @@ done
 log_step "Verifying machine-readable metadata"
 
 METADATA_FILES=(
-    ".machine_readable/STATE.a2ml"
-    ".machine_readable/META.a2ml"
+    ".machine_readable/descriptiles/STATE.a2ml"
+    ".machine_readable/descriptiles/META.a2ml"
 )
 
 for file in "${METADATA_FILES[@]}"; do

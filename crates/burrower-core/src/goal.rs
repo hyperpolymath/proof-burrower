@@ -42,7 +42,7 @@ fn detect_language(raw: &str) -> Option<String> {
     // Order matters — check the most distinctive keywords first.
     if raw.contains("theorem ") && (raw.contains(":=") || raw.contains("by ")) {
         Some("lean".to_string())
-    } else if raw.contains("lemma ") && raw.contains("\\<")  {
+    } else if raw.contains("lemma ") && raw.contains("\\<") {
         Some("isabelle".to_string())
     } else if raw.contains("Theorem ") || raw.contains("Lemma ") || raw.contains("Definition ") {
         Some("coq".to_string())
@@ -62,11 +62,38 @@ fn extract_tokens(raw: &str, _language: Option<&str>) -> BTreeSet<String> {
     // Common keywords across Isabelle / Coq / Lean that are pure
     // syntactic noise — drop them to focus on semantic content.
     const NOISE: &[&str] = &[
-        "lemma", "theorem", "Lemma", "Theorem", "Definition", "definition",
-        "proof", "qed", "by", "using", "assumes", "shows", "fixes",
-        "where", "if", "then", "else", "let", "in",
-        "the", "a", "an", "of", "to", "from", "for", "with",
-        "Type", "Prop", "Set", "True", "False",
+        "lemma",
+        "theorem",
+        "Lemma",
+        "Theorem",
+        "Definition",
+        "definition",
+        "proof",
+        "qed",
+        "by",
+        "using",
+        "assumes",
+        "shows",
+        "fixes",
+        "where",
+        "if",
+        "then",
+        "else",
+        "let",
+        "in",
+        "the",
+        "a",
+        "an",
+        "of",
+        "to",
+        "from",
+        "for",
+        "with",
+        "Type",
+        "Prop",
+        "Set",
+        "True",
+        "False",
     ];
 
     raw_tokens(&cleaned)

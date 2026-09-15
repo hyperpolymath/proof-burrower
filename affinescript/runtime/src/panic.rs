@@ -78,7 +78,7 @@ pub enum ErrorCode {
 
 /// Initialize panic handling
 pub fn init() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Set up default panic hook
     // - [ ] Register with host for error reporting
     // - [ ] Initialize stack canaries (if enabled)
@@ -139,7 +139,7 @@ pub extern "C" fn panic(
 /// * `code` - Error code indicating the type of error
 #[no_mangle]
 pub extern "C" fn panic_code(code: ErrorCode) -> ! {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Convert code to message
     // - [ ] Call panic hook
     // - [ ] Trap with code
@@ -214,7 +214,7 @@ pub extern "C" fn use_after_move(
     line: u32,
     column: u32,
 ) -> ! {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Format error message
     // - [ ] Include variable name
     // - [ ] Call panic
@@ -235,7 +235,7 @@ pub extern "C" fn borrow_violation(
     panic(message, message_len, file, file_len, line, column)
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Implement WASI error output
 // - [ ] Add stack trace collection (if debug info available)
 // - [ ] Add error code documentation

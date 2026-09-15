@@ -487,7 +487,7 @@ impl LanguageServer for Backend {
     }
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
-        // TODO: Phase D — requires structured fix suggestions in --json output
+        // TODO(#84): Phase D — requires structured fix suggestions in --json output
         let _ = params;
         Ok(None)
     }

@@ -67,7 +67,7 @@ pub extern "C" fn __affinescript_cleanup() {
     gc::collect();
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Memory allocator optimized for linear values
 // - [ ] Effect evidence passing runtime
 // - [ ] Handler frame management

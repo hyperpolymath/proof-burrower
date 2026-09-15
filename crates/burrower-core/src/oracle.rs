@@ -22,10 +22,10 @@
 //! computational work in Julia means proof-burrower stays prover-agnostic
 //! and the math lives next to the rest of the project's Julia helpers.
 
+use crate::goal::Goal;
 use crate::ledger::{
     goal_hash, new_id, now_iso, Approach, Learning, Ledger, LedgerRecord, RecordResult,
 };
-use crate::goal::Goal;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -72,7 +72,10 @@ impl OracleVerdict {
     /// True iff the swarm should SKIP the proof attempt (the lemma is
     /// suspect or the oracle hit a hard failure).
     pub fn blocks_attempt(&self) -> bool {
-        matches!(self, OracleVerdict::Disagree { .. } | OracleVerdict::FuzzCounter { .. })
+        matches!(
+            self,
+            OracleVerdict::Disagree { .. } | OracleVerdict::FuzzCounter { .. }
+        )
     }
 
     pub fn pattern_kind(&self) -> &'static str {
@@ -111,7 +114,13 @@ pub fn run(config: &OracleConfig) -> OracleVerdict {
             reason: format!(
                 "julia exit {} — stderr tail: {}",
                 output.status.code().unwrap_or(-1),
-                stderr.lines().last().unwrap_or("").chars().take(160).collect::<String>()
+                stderr
+                    .lines()
+                    .last()
+                    .unwrap_or("")
+                    .chars()
+                    .take(160)
+                    .collect::<String>()
             ),
         };
     }
@@ -133,15 +142,25 @@ pub fn parse_verdict(stdout: &str) -> OracleVerdict {
         };
 
         let verdict = if payload.starts_with("agree") {
-            OracleVerdict::Agree { detail: payload.to_string() }
+            OracleVerdict::Agree {
+                detail: payload.to_string(),
+            }
         } else if payload.starts_with("disagree") {
-            OracleVerdict::Disagree { detail: payload.to_string() }
+            OracleVerdict::Disagree {
+                detail: payload.to_string(),
+            }
         } else if payload.starts_with("fuzz-counter") {
-            OracleVerdict::FuzzCounter { detail: payload.to_string() }
+            OracleVerdict::FuzzCounter {
+                detail: payload.to_string(),
+            }
         } else if payload.starts_with("fuzz-clean") {
-            OracleVerdict::FuzzClean { detail: payload.to_string() }
+            OracleVerdict::FuzzClean {
+                detail: payload.to_string(),
+            }
         } else if payload.starts_with("inapplicable") {
-            OracleVerdict::Inapplicable { reason: payload.to_string() }
+            OracleVerdict::Inapplicable {
+                reason: payload.to_string(),
+            }
         } else {
             OracleVerdict::Inapplicable {
                 reason: format!("unparsed verdict shape: {payload}"),
@@ -207,7 +226,12 @@ pub fn record_to_ledger(
             preconditions_assumed: vec![],
         }),
         result: Some(RecordResult {
-            status: if verdict.blocks_attempt() { "blocked" } else { "advisory" }.to_string(),
+            status: if verdict.blocks_attempt() {
+                "blocked"
+            } else {
+                "advisory"
+            }
+            .to_string(),
             explanation: format!("{:?}", verdict),
             artifacts: vec![],
         }),
@@ -225,7 +249,9 @@ mod tests {
 
     #[test]
     fn parse_agree_line() {
-        let v = parse_verdict("oracle: agree (family=tropical-determinant-min, computed=5, expected=5)");
+        let v = parse_verdict(
+            "oracle: agree (family=tropical-determinant-min, computed=5, expected=5)",
+        );
         assert!(matches!(v, OracleVerdict::Agree { .. }));
         assert!(!v.blocks_attempt());
     }
@@ -239,7 +265,9 @@ mod tests {
 
     #[test]
     fn parse_fuzz_counter_blocks_attempt() {
-        let v = parse_verdict("oracle: fuzz-counter (family=foo, trials=50, disagreements=3, sample=...)");
+        let v = parse_verdict(
+            "oracle: fuzz-counter (family=foo, trials=50, disagreements=3, sample=...)",
+        );
         assert!(v.blocks_attempt());
         assert_eq!(v.pattern_kind(), "oracle-fuzz-counter");
     }

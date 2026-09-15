@@ -250,7 +250,7 @@ impl HtmlGenerator {
 
     /// Generate search index
     fn generate_search_index(&self, _modules: &[ModuleDoc]) -> anyhow::Result<()> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Extract searchable content
         // - [ ] Build JSON index
         // - [ ] Or build Tantivy index
@@ -259,7 +259,7 @@ impl HtmlGenerator {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add navigation sidebar
 // - [ ] Add breadcrumbs
 // - [ ] Add source links

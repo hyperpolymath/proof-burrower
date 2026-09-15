@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # dogfood-gate.yml — Hyperpolymath Dogfooding Quality Gate
@@ -27,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Check for A2ML files
         id: detect
@@ -40,7 +41,7 @@ jobs:
 
       - name: Validate A2ML manifests
         if: steps.detect.outputs.count > 0
-        uses: hyperpolymath/a2ml-ecosystem/validate-action@aa4b836bd969df2bc58128cb8e3d20bbc88d5e79 # main
+        uses: hyperpolymath/a2ml-ecosystem/validate-action@main
         with:
           path: '.'
           strict: 'false'
@@ -72,7 +73,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Check for K9 files
         id: detect
@@ -89,7 +90,7 @@ jobs:
 
       - name: Validate K9 contracts
         if: steps.detect.outputs.k9_count > 0
-        uses: hyperpolymath/k9-ecosystem/validate-action@89f3c2702f4f650a92aa7411502f38da06abd562 # main
+        uses: hyperpolymath/k9-ecosystem/validate-action@main
         with:
           path: '.'
           strict: 'false'
@@ -122,7 +123,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Scan for invisible characters
         id: lint
@@ -131,7 +132,7 @@ jobs:
           # Checks for: zero-width spaces, zero-width joiners, BOM, soft hyphens,
           # non-breaking spaces, null bytes, and other invisible Unicode in source files.
           set +e
-          PATTERNS='\xc2\xa0|\xe2\x80\x8b|\xe2\x80\x8c|\xe2\x80\x8d|\xef\xbb\xbf|\xc2\xad|\xe2\x80\x8e|\xe2\x80\x8f|\xe2\x80\xaa|\xe2\x80\xab|\xe2\x80\xac|\xe2\x80\xad|\xe2\x80\xae|\x00'
+          PATTERNS='(*UTF)[\x00-\x08\x0B\x0C\x0E-\x1F\x{a0}\x{ad}\x{200b}-\x{200f}\x{202a}-\x{202f}\x{2060}\x{2066}-\x{2069}\x{feff}]'
           find "$GITHUB_WORKSPACE" \
             -not -path '*/.git/*' -not -path '*/node_modules/*' \
             -not -path '*/.deno/*' -not -path '*/target/*' \
@@ -142,7 +143,7 @@ jobs:
               -o -name '*.yml' -o -name '*.yaml' -o -name '*.md' -o -name '*.adoc' \
               -o -name '*.idr' -o -name '*.zig' -o -name '*.v' -o -name '*.jl' \
               -o -name '*.gleam' -o -name '*.hs' -o -name '*.ml' -o -name '*.sh' \) \
-            -exec grep -Prl "$PATTERNS" {} \; > /tmp/empty-lint-results.txt 2>/dev/null
+            -exec grep -aPrl "$PATTERNS" {} \; > /tmp/empty-lint-results.txt 2>/dev/null
           EL_EXIT=$?
           set -e
 
@@ -187,7 +188,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Check for Groove manifest
         id: groove
@@ -246,7 +247,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Check and validate eclexiaiser manifest
         id: eclex
@@ -312,7 +313,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@v4.3.1
 
       - name: Generate dogfooding scorecard
         run: |

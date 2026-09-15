@@ -1,3 +1,4 @@
+K9!
 # SPDX-License-Identifier: MPL-2.0
 # deploy.k9.ncl — Proof Burrower deployment component (Hunt level)
 #
@@ -18,7 +19,7 @@ let component_pedigree = {
   # L1: The Snout — Identity
   # ─────────────────────────────────────────────────────────────
   metadata = {
-    name = "{{SERVICE_NAME}}-deploy",
+    name = "proof-burrower-deploy",
     version = "0.0.1",
     breed = "application/vnd.k9+nickel",
     magic_number = "K9!",
@@ -94,7 +95,8 @@ let deployment = {
   # Container configuration
   container = {
     image = "{{REGISTRY}}/{{SERVICE_NAME}}",
-    port = {{PORT}},
+    # Required deployment input; no network port has been selected here.
+    port | Number,
     health_check = "/health",
     readiness_check = "/ready",
   },
@@ -143,7 +145,12 @@ echo "K9: Rollback complete."
 
 # Export the component
 {
-  pedigree = component_pedigree,
+  pedigree = component_pedigree & {
+    name = "proof-burrower-deploy",
+    version = "0.0.1",
+    leash = 'Hunt,
+    signature_required = true,
+  },
   deployment = deployment,
   scripts = scripts,
 

@@ -152,7 +152,7 @@ impl RegistryClient {
 
     /// Search for packages
     pub async fn search(&self, query: &str, page: u32) -> Result<SearchResult, RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // GET /api/v1/search?q={query}&page={page}
         let _ = (query, page);
         Ok(SearchResult {
@@ -163,7 +163,7 @@ impl RegistryClient {
 
     /// Get package info
     pub async fn get_package(&self, name: &str) -> Result<PackageInfo, RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // GET /api/v1/packages/{name}
         let _ = name;
         Err(RegistryError::NotFound(name.to_string()))
@@ -175,7 +175,7 @@ impl RegistryClient {
         name: &str,
         version: &Version,
     ) -> Result<VersionInfo, RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // GET /api/v1/packages/{name}/{version}
         let _ = (name, version);
         Err(RegistryError::NotFound(format!("{}@{}", name, version)))
@@ -183,7 +183,7 @@ impl RegistryClient {
 
     /// Download package tarball
     pub async fn download(&self, url: &str) -> Result<bytes::Bytes, RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // GET {download_url}
         let _ = url;
         Ok(bytes::Bytes::new())
@@ -191,7 +191,7 @@ impl RegistryClient {
 
     /// Publish a package
     pub async fn publish(&self, request: PublishRequest) -> Result<(), RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // PUT /api/v1/packages/{name}
         // Authorization: Bearer {token}
         let _ = request;
@@ -205,7 +205,7 @@ impl RegistryClient {
 
     /// Yank a version
     pub async fn yank(&self, name: &str, version: &Version) -> Result<(), RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // DELETE /api/v1/packages/{name}/{version}
         let _ = (name, version);
 
@@ -218,7 +218,7 @@ impl RegistryClient {
 
     /// Unyank a version
     pub async fn unyank(&self, name: &str, version: &Version) -> Result<(), RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // PUT /api/v1/packages/{name}/{version}/unyank
         let _ = (name, version);
 
@@ -231,7 +231,7 @@ impl RegistryClient {
 
     /// Get owners of a package
     pub async fn get_owners(&self, name: &str) -> Result<Vec<String>, RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // GET /api/v1/packages/{name}/owners
         let _ = name;
         Ok(vec![])
@@ -239,7 +239,7 @@ impl RegistryClient {
 
     /// Add an owner
     pub async fn add_owner(&self, name: &str, user: &str) -> Result<(), RegistryError> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // PUT /api/v1/packages/{name}/owners
         let _ = (name, user);
 
@@ -251,7 +251,7 @@ impl RegistryClient {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Implement actual HTTP requests
 // - [ ] Add retry logic with backoff
 // - [ ] Add caching with ETags
