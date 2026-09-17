@@ -144,8 +144,15 @@ impl Ledger {
     }
 
     /// Filter records matching a predicate.
-    pub fn query(&self, mut predicate: impl FnMut(&LedgerRecord) -> bool) -> Result<Vec<LedgerRecord>> {
-        Ok(self.read_all()?.into_iter().filter(|r| predicate(r)).collect())
+    pub fn query(
+        &self,
+        mut predicate: impl FnMut(&LedgerRecord) -> bool,
+    ) -> Result<Vec<LedgerRecord>> {
+        Ok(self
+            .read_all()?
+            .into_iter()
+            .filter(|r| predicate(r))
+            .collect())
     }
 
     /// Most-recent N records.
@@ -271,7 +278,8 @@ mod tests {
             learning: Some(Learning {
                 pattern_extracted: "tropical-not-ordered-class".to_string(),
                 pattern_kind: "anti-pattern".to_string(),
-                generalisation: "Tropical algebra needs explicit hierarchy class instance".to_string(),
+                generalisation: "Tropical algebra needs explicit hierarchy class instance"
+                    .to_string(),
                 visible_to: vec![],
             }),
             extra: serde_json::Value::Null,

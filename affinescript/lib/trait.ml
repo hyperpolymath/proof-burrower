@@ -201,7 +201,7 @@ let register_impl (registry : trait_registry) (impl_block : impl_block) (self_ty
       match item with
       | ImplType (name, _ty_expr) ->
         (* Convert ty_expr to ty - placeholder for now *)
-        (* TODO: Need context to properly convert ty_expr to ty *)
+        (* TODO(#84): Need context to properly convert ty_expr to ty *)
         let placeholder_var = ref (Unbound (0, 0)) in
         Some (name.name, TVar placeholder_var)
       | ImplFn _ -> None
@@ -263,7 +263,7 @@ let check_impl_satisfies_trait (registry : trait_registry) (impl : trait_impl) :
         match List.assoc_opt method_def.tm_name impl.ti_methods with
         | None -> Error (MissingMethod (trait_def.td_name, method_def.tm_name))
         | Some impl_method ->
-          (* TODO: Check signature matches *)
+          (* TODO(#84): Check signature matches *)
           (* For now, just check it exists *)
           let impl_param_count = List.length impl_method.fd_params in
           let trait_param_count = List.length method_def.tm_params in
@@ -425,13 +425,13 @@ let check_coherence (registry : trait_registry) (trait_name : string) : unit res
   match Hashtbl.find_opt registry.impls trait_name with
   | None -> Ok ()
   | Some impls ->
-    (* TODO: Check for overlapping impls *)
+    (* TODO(#84): Check for overlapping impls *)
     (* For now, just ensure no duplicate self types *)
     let rec check_pairs = function
       | [] -> Ok ()
       | _impl :: rest ->
         (* Check if any impl in rest has same self_ty *)
-        (* TODO: Proper unification check *)
+        (* TODO(#84): Proper unification check *)
         check_pairs rest
     in
     check_pairs impls

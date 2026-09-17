@@ -3,7 +3,7 @@
 ### [META]
 id: "wikis-track"
 level: 2
-parent: "../0.1-AI-MANIFEST.a2ml"
+parent: "../../docs/0.1-AI-MANIFEST.a2ml"
 
 ---
 ### [AI_MANIFEST]
@@ -12,4 +12,4 @@ description: |
   This directory mirrors the content structure of the project wiki.
 
 invariants:
-  - "Primary wiki format MUST be AsciiDoc (.adoc)"
+  - "Primary wiki format MUST be Markdown (.md)"

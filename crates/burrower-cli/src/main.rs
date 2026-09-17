@@ -87,7 +87,10 @@ enum Cmd {
         /// The proof goal as a string. Quote it.
         goal: String,
         /// Path to the echidna binary.
-        #[arg(long, default_value = "/var/mnt/eclipse/repos/echidna/target/debug/echidna")]
+        #[arg(
+            long,
+            default_value = "/var/mnt/eclipse/repos/echidna/target/debug/echidna"
+        )]
         echidna: PathBuf,
         /// Per-attempt timeout (seconds), passed to `echidna prove -t`.
         #[arg(long, default_value_t = 60)]
@@ -174,7 +177,10 @@ fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
         LedgerCmd::Recent { path, limit } => {
             let l = Ledger::open(&path)?;
             let recs = l.recent(limit)?;
-            println!("Burrow Ledger — last {} record(s) (newest first):\n", recs.len());
+            println!(
+                "Burrow Ledger — last {} record(s) (newest first):\n",
+                recs.len()
+            );
             for r in recs {
                 println!("[{}] {} · {}", r.timestamp, r.specialist, r.goal_hash);
                 println!("    goal: {}", r.goal_excerpt);
@@ -206,7 +212,10 @@ fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
                 );
             }
         }
-        LedgerCmd::AntiPatterns { path, for_specialist } => {
+        LedgerCmd::AntiPatterns {
+            path,
+            for_specialist,
+        } => {
             let l = Ledger::open(&path)?;
             let antis = l.anti_patterns_for(&for_specialist)?;
             println!(
@@ -215,11 +224,7 @@ fn handle_ledger(cmd: LedgerCmd) -> Result<()> {
                 antis.len()
             );
             for a in antis {
-                println!(
-                    "  · {} — {}",
-                    a.pattern_extracted,
-                    a.generalisation
-                );
+                println!("  · {} — {}", a.pattern_extracted, a.generalisation);
             }
         }
         LedgerCmd::Digest { path } => {
@@ -299,10 +304,13 @@ fn handle_attempt(
             );
             // Emit a json result-shape consistent with the normal path.
             if format == "json" {
-                println!("{}", serde_json::json!({
-                    "blocked_by_oracle": true,
-                    "verdict_kind": verdict.pattern_kind(),
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "blocked_by_oracle": true,
+                        "verdict_kind": verdict.pattern_kind(),
+                    })
+                );
             }
             return Ok(());
         }
@@ -369,14 +377,30 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
         Cmd::Attempt {
-            goal, echidna, timeout, ledger, format,
-            project_root, sandbox,
-            oracle, oracle_descriptor, oracle_project, oracle_julia,
+            goal,
+            echidna,
+            timeout,
+            ledger,
+            format,
+            project_root,
+            sandbox,
+            oracle,
+            oracle_descriptor,
+            oracle_project,
+            oracle_julia,
         } => {
             return handle_attempt(
-                goal, echidna, timeout, ledger, format,
-                project_root, sandbox,
-                oracle, oracle_descriptor, oracle_project, oracle_julia,
+                goal,
+                echidna,
+                timeout,
+                ledger,
+                format,
+                project_root,
+                sandbox,
+                oracle,
+                oracle_descriptor,
+                oracle_project,
+                oracle_julia,
             )
         }
         Cmd::Ledger { sub } => return handle_ledger(sub),
@@ -401,16 +425,8 @@ fn main() -> Result<()> {
             let corpus = Corpus::load(&index)?;
             let parsed = parse_goal(&goal);
             let swarm = Swarm::new();
-            let ledger_handle = ledger
-                .as_ref()
-                .map(|p| Ledger::open(p))
-                .transpose()?;
-            let readings = swarm.route_with_ledger(
-                &parsed,
-                &corpus,
-                top,
-                ledger_handle.as_ref(),
-            );
+            let ledger_handle = ledger.as_ref().map(Ledger::open).transpose()?;
+            let readings = swarm.route_with_ledger(&parsed, &corpus, top, ledger_handle.as_ref());
             match format.as_str() {
                 "json" => {
                     println!("{}", serde_json::to_string_pretty(&readings)?);

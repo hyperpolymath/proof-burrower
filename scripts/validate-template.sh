@@ -118,7 +118,7 @@ echo ""
 check_file_exists ".machine_readable/descriptiles/STATE.a2ml" "Project state"
 check_file_exists ".machine_readable/descriptiles/META.a2ml" "Architecture decisions"
 check_file_exists ".machine_readable/descriptiles/ECOSYSTEM.a2ml" "Ecosystem position"
-check_file_exists ".machine_readable/anchors/ANCHOR.a2ml" "Semantic boundary anchor"
+check_file_exists ".machine_readable/descriptiles/anchor/ANCHOR.a2ml" "Semantic boundary anchor"
 check_file_exists ".machine_readable/policies/MAINTENANCE-AXES.a2ml" "Maintenance axes"
 
 #==============================================================================

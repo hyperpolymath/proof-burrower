@@ -2,8 +2,8 @@
 # AI Assistant Instructions
 
 ## Repository Focus
-- `rsr-template-repo` is treated as a Rhodium Standard Repository; obey the Rhodium policies and keep `.machine_readable/` authoritative.
-- All machine-readable content lives under `.machine_readable/` — state files (a2ml), bot directives, and contractiles.
+- `proof-burrower` follows the Rhodium repository policies.
+- State descriptors live in `.machine_readable/descriptiles/`, contracts in `.machine_readable/contractiles/`, and bot directives in the root `.bot_directives/` directory.
 - Prefer to keep generated files out of source control, and regenerate them with the documented commands before committing.
 
 ## Workflow
@@ -12,7 +12,7 @@
 3. After finishing edits, update STATE with your outcomes and commit with a concise, imperative message.
 
 ## Delivery Promises
-- Mention in summaries whether STATE, `.machine_readable/contractiles/`, or `.machine_readable/bot_directives/` changed.
+- Mention in summaries whether STATE, `.machine_readable/contractiles/`, or `.bot_directives/` changed.
 - Keep this file in sync with the repository's status; update it if the governance changes.
 
 [foundational-integrations]

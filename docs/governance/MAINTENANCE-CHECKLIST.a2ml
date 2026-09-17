@@ -2,6 +2,7 @@
 # Cross-repo maintenance baseline (machine-readable canonical)
 
 [metadata]
+name = "proof-burrower-maintenance-checklist"
 version = "1.1.0"
 last-updated = "2026-02-24"
 scope = "cross-repo"
@@ -102,10 +103,11 @@ ownership_files = [
 ]
 
 machine_readable_required = [
-  ".machine_readable/anchors/ANCHOR.a2ml",
+  ".machine_readable/descriptiles/anchor/ANCHOR.a2ml",
+  ".machine_readable/descriptiles/",
   ".machine_readable/contractiles/",
   ".machine_readable/ai/",
-  ".machine_readable/bot_directives/",
+  ".bot_directives/",
 ]
 
 contractiles_required = [

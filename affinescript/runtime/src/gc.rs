@@ -68,7 +68,7 @@ pub struct Gc<T: ?Sized> {
 impl<T> Gc<T> {
     /// Allocate a new GC-managed value
     pub fn new(value: T) -> Self {
-        // TODO: Phase 6 implementation
+        // TODO(#84): Phase 6 implementation
         // - [ ] Allocate space for header + value
         // - [ ] Initialize header
         // - [ ] Register in allocation list
@@ -128,7 +128,7 @@ static mut GC_STATE: GcState = GcState {
 
 /// Initialize the garbage collector
 pub fn init() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Set up allocation list
     // - [ ] Initialize root set
     // - [ ] Set threshold based on available memory
@@ -153,7 +153,7 @@ pub extern "C" fn collect() {
 
 /// Mark phase: trace from roots
 unsafe fn mark_from_roots() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Mark all roots
     // - [ ] Recursively mark reachable objects
     // - [ ] Handle cycles (already marked = skip)
@@ -161,7 +161,7 @@ unsafe fn mark_from_roots() {
 
 /// Sweep phase: free unmarked objects
 unsafe fn sweep() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Walk allocation list
     // - [ ] Free unmarked objects
     // - [ ] Clear marks on surviving objects
@@ -274,7 +274,7 @@ pub extern "C" fn gc_set_threshold(threshold: usize) {
     }
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Implement proper mark phase with type-based tracing
 // - [ ] Implement sweep with proper memory deallocation
 // - [ ] Add write barrier for generational GC (optional)

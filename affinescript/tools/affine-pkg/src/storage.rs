@@ -84,7 +84,7 @@ impl PackageStore {
         std::fs::create_dir_all(&pkg_dir)?;
 
         // Extract tarball
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Extract tar.gz to pkg_dir
         // - [ ] Create integrity file
 
@@ -98,7 +98,7 @@ impl PackageStore {
         _version: &str,
         _target: impl AsRef<Path>,
     ) -> std::io::Result<()> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Create symlink or copy on Windows
         // - [ ] Handle nested dependencies
 
@@ -107,7 +107,7 @@ impl PackageStore {
 
     /// Garbage collect unused content
     pub fn gc(&self) -> std::io::Result<GcStats> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Scan all projects for used packages
         // - [ ] Remove unreferenced content
         // - [ ] Return statistics
@@ -120,7 +120,7 @@ impl PackageStore {
 
     /// Verify store integrity
     pub fn verify(&self) -> std::io::Result<Vec<VerifyError>> {
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Scan all content
         // - [ ] Verify hashes match
         // - [ ] Report errors
@@ -188,7 +188,7 @@ pub struct VerifyError {
     pub actual: ContentHash,
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add parallel extraction
 // - [ ] Add hardlink support for same-OS
 // - [ ] Add copy-on-write support (reflinks)

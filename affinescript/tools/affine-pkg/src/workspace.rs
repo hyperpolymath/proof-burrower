@@ -156,7 +156,7 @@ impl Workspace {
     }
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add workspace inheritance for dependencies
 // - [ ] Add workspace-level features
 // - [ ] Add parallel builds across workspace

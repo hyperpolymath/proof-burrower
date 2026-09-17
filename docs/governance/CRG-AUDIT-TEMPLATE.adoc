@@ -64,7 +64,7 @@ Do *not* mark PRESENT without citing the path.
 | PRESENT / PARTIAL (count) / ABSENT
 | `.github/workflows/`
 
-| `.machine_readable/` canonical A2ML
+| `.machine_readable/descriptiles/` canonical A2ML
 | PRESENT (STATE, META, ECOSYSTEM, AGENTIC, NEUROSYM, PLAYBOOK) / ABSENT
 | Layout matches CLAUDE.md invariant
 

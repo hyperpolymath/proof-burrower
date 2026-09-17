@@ -145,7 +145,7 @@ impl Extractor {
     pub fn extract_file(&self, path: impl AsRef<Path>) -> anyhow::Result<ModuleDoc> {
         let _path = path.as_ref();
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Parse source file
         // - [ ] Walk AST
         // - [ ] Extract doc comments
@@ -163,7 +163,7 @@ impl Extractor {
     pub fn extract_dir(&self, path: impl AsRef<Path>) -> anyhow::Result<Vec<ModuleDoc>> {
         let _path = path.as_ref();
 
-        // TODO: Phase 8 implementation
+        // TODO(#84): Phase 8 implementation
         // - [ ] Find all .afs files
         // - [ ] Extract each file
         // - [ ] Build module hierarchy
@@ -257,7 +257,7 @@ impl Extractor {
         match section {
             "description" => *description = content.to_string(),
             "params" => {
-                // TODO: Parse parameter docs
+                // TODO(#84): Parse parameter docs
             }
             "returns" => *returns = Some(content.to_string()),
             "examples" => examples.push(content.to_string()),
@@ -285,7 +285,7 @@ pub struct DocComment {
     pub safety: Option<String>,
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Connect to AffineScript parser
 // - [ ] Handle attribute macros (#[doc], #[deprecated], etc.)
 // - [ ] Extract impl blocks

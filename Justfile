@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+# Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # RSR Standard Justfile Template
@@ -404,10 +404,10 @@ self-assess:
         fi
     done
 
-    if [ -d ".machine_readable" ]; then
-        echo "  ✓ .machine_readable/ — KEEP (SCM checkpoint files)"
+    if [ -d ".machine_readable/descriptiles" ]; then
+        echo "  ✓ .machine_readable/descriptiles/ — KEEP (SCM checkpoint files)"
     else
-        echo "  ✗ .machine_readable/ — MISSING (RSR violation!)"
+        echo "  ✗ .machine_readable/descriptiles/ — MISSING (RSR violation!)"
     fi
 
     if [ -d ".github/workflows" ]; then
@@ -494,13 +494,13 @@ self-assess:
         echo "    automated compliance checking. Zero cost to keep."
     fi
 
-    if [ -d ".machine_readable/bot_directives" ]; then
+    if [ -d ".bot_directives" ]; then
         echo "  ◆ bot_directives/ — Gitbot fleet configuration."
         echo "    Not active until gitbot-fleet is connected. Keeps your repo"
         echo "    ready for automated maintenance when the fleet arrives."
     fi
 
-    if [ -d ".machine_readable/bot_directives" ]; then
+    if [ -d ".bot_directives" ]; then
         echo "  ◆ bot_directives/ — AI agent methodology config."
         echo "    Guides Claude/Gemini/etc on how to work in this repo."
         echo "    No cost to keep. Improves AI assistance quality."
@@ -1052,7 +1052,7 @@ validate-rsr:
     for f in .editorconfig .gitignore Justfile README.adoc LICENSE 0-AI-MANIFEST.a2ml; do
         [ -f "$f" ] || MISSING="$MISSING $f"
     done
-    for f in .machine_readable/descriptiles/STATE.a2ml .machine_readable/descriptiles/META.a2ml .machine_readable/descriptiles/ECOSYSTEM.a2ml .machine_readable/anchors/ANCHOR.a2ml .machine_readable/policies/MAINTENANCE-AXES.a2ml .machine_readable/policies/MAINTENANCE-CHECKLIST.a2ml .machine_readable/policies/SOFTWARE-DEVELOPMENT-APPROACH.a2ml; do
+    for f in .machine_readable/descriptiles/STATE.a2ml .machine_readable/descriptiles/META.a2ml .machine_readable/descriptiles/ECOSYSTEM.a2ml .machine_readable/descriptiles/anchor/ANCHOR.a2ml .machine_readable/policies/MAINTENANCE-AXES.a2ml .machine_readable/policies/MAINTENANCE-CHECKLIST.a2ml .machine_readable/policies/SOFTWARE-DEVELOPMENT-APPROACH.a2ml; do
         [ -f "$f" ] || MISSING="$MISSING $f"
     done
     for f in licensing/exhibits/EXHIBIT-A-ETHICAL-USE.txt licensing/exhibits/EXHIBIT-B-QUANTUM-SAFE.txt licensing/texts/MPL-2.0.txt; do

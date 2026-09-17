@@ -102,10 +102,11 @@ ownership_files = [
 ]
 
 machine_readable_required = [
-  ".machine_readable/anchors/ANCHOR.a2ml",
+  ".machine_readable/descriptiles/anchor/ANCHOR.a2ml",
+  ".machine_readable/descriptiles/",
   ".machine_readable/contractiles/",
   ".machine_readable/ai/",
-  ".machine_readable/bot_directives/",
+  ".bot_directives/",
 ]
 
 contractiles_required = [

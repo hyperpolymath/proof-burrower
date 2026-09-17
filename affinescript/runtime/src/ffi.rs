@@ -89,7 +89,7 @@ static mut HOST_REGISTRY: HostRegistry = HostRegistry {
 
 /// Initialize FFI layer
 pub fn init() {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // - [ ] Set up host function table
     // - [ ] Initialize string interop
     // - [ ] Register built-in imports
@@ -205,14 +205,14 @@ mod wasi_ffi {
     /// Write to stdout
     #[no_mangle]
     pub extern "C" fn wasi_print(s: FfiString) {
-        // TODO: Phase 6 implementation
+        // TODO(#84): Phase 6 implementation
         // - [ ] Use fd_write to stdout
     }
 
     /// Read from stdin
     #[no_mangle]
     pub extern "C" fn wasi_read_line() -> FfiString {
-        // TODO: Phase 6 implementation
+        // TODO(#84): Phase 6 implementation
         // - [ ] Use fd_read from stdin
         FfiString::new(core::ptr::null(), 0)
     }
@@ -220,7 +220,7 @@ mod wasi_ffi {
     /// Get environment variable
     #[no_mangle]
     pub extern "C" fn wasi_getenv(name: FfiString) -> FfiString {
-        // TODO: Phase 6 implementation
+        // TODO(#84): Phase 6 implementation
         // - [ ] Use environ_get
         FfiString::new(core::ptr::null(), 0)
     }
@@ -228,7 +228,7 @@ mod wasi_ffi {
     /// Get command line arguments
     #[no_mangle]
     pub extern "C" fn wasi_args() -> FfiArray<FfiString> {
-        // TODO: Phase 6 implementation
+        // TODO(#84): Phase 6 implementation
         // - [ ] Use args_get
         FfiArray {
             ptr: core::ptr::null(),
@@ -244,7 +244,7 @@ mod wasi_ffi {
 /// Convert AffineScript Int to host i64
 #[no_mangle]
 pub extern "C" fn int_to_i64(value: *const ()) -> i64 {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     // AffineScript Ints may be arbitrary precision
     0
 }
@@ -252,25 +252,25 @@ pub extern "C" fn int_to_i64(value: *const ()) -> i64 {
 /// Convert host i64 to AffineScript Int
 #[no_mangle]
 pub extern "C" fn i64_to_int(value: i64) -> *mut () {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     core::ptr::null_mut()
 }
 
 /// Convert AffineScript Float to host f64
 #[no_mangle]
 pub extern "C" fn float_to_f64(value: *const ()) -> f64 {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     0.0
 }
 
 /// Convert host f64 to AffineScript Float
 #[no_mangle]
 pub extern "C" fn f64_to_float(value: f64) -> *mut () {
-    // TODO: Phase 6 implementation
+    // TODO(#84): Phase 6 implementation
     core::ptr::null_mut()
 }
 
-// TODO: Phase 6 implementation
+// TODO(#84): Phase 6 implementation
 // - [ ] Implement wasm-bindgen integration
 // - [ ] Add JSON serialization for complex types
 // - [ ] Implement async callback support

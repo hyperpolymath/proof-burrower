@@ -19,7 +19,7 @@ pub fn render_markdown(markdown: &str) -> String {
 
 /// Render code with syntax highlighting
 pub fn render_code(code: &str, language: Option<&str>) -> String {
-    // TODO: Phase 8 implementation
+    // TODO(#84): Phase 8 implementation
     // - [ ] Use syntect for highlighting
     // - [ ] Support AffineScript syntax
     // - [ ] Add line numbers option
@@ -43,7 +43,7 @@ pub fn html_escape(s: &str) -> String {
 
 /// Render a type signature with links
 pub fn render_signature(signature: &str, _link_resolver: &dyn Fn(&str) -> Option<String>) -> String {
-    // TODO: Phase 8 implementation
+    // TODO(#84): Phase 8 implementation
     // - [ ] Parse signature
     // - [ ] Identify type names
     // - [ ] Create links to type documentation
@@ -113,7 +113,7 @@ pub enum Stability {
     Deprecated,
 }
 
-// TODO: Phase 8 implementation
+// TODO(#84): Phase 8 implementation
 // - [ ] Add syntax highlighting for AffineScript
 // - [ ] Implement cross-reference resolution
 // - [ ] Add heading anchor links
