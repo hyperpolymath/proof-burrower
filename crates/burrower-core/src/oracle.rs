@@ -218,6 +218,7 @@ pub fn record_to_ledger(
         id: new_id(),
         timestamp: now_iso(),
         goal_hash: goal_hash(&goal.raw),
+        goal_id: Some(crate::ids::goal_content_id(&goal.raw)),
         goal_excerpt: goal.raw.chars().take(200).collect(),
         specialist: "Oracle".to_string(),
         approach: Some(Approach {

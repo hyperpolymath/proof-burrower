@@ -35,8 +35,9 @@ until then CI exercises the legacy fallback. Contract:
 == "Keeps a ledger"
 
 Implemented and unit-tested: `crates/burrower-core/src/ledger.rs`.
-Single writer, no locking; ids from `ledger::new_id` are time + process
-sequence, not UUIDs.
+Single writer, no locking. Record ids are UUIDv7 and goal ids UUIDv8
+content ids, both minted only in `crates/burrower-core/src/ids.rs` (see
+`docs/ECHIDNA-INTEGRATION.adoc` § Identifiers).
 
 == What is not claimed
 

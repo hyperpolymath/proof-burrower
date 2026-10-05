@@ -116,17 +116,27 @@ pub struct ProofReceipt {
     pub confidence: Option<f64>,
     /// The echidna version that issued the receipt.
     pub echidna_version: String,
+    /// Content id of the prove result (UUIDv8 over the JCS bytes of its
+    /// contract fields, see [`crate::ids::content_id`]); identical results
+    /// share an id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_id: Option<String>,
 }
 
 impl ProofReceipt {
     /// Build a receipt from a parsed prove result.
     pub fn from_result(r: &ProveResult) -> Self {
+        let result_id = serde_json::to_value(r)
+            .ok()
+            .and_then(|v| crate::ids::content_id(&v).ok())
+            .map(|u| u.to_string());
         Self {
             schema: r.schema.clone(),
             prover: r.prover.clone(),
             axioms: r.trust.axioms.clone(),
             confidence: r.trust.confidence,
             echidna_version: r.echidna_version.clone(),
+            result_id,
         }
     }
 }
@@ -526,6 +536,7 @@ pub fn run_playbook(
 ) -> Result<Vec<ProofAttempt>> {
     let mut attempts = Vec::new();
     let goal_h = goal_hash(&goal.raw);
+    let goal_id = crate::ids::goal_content_id(&goal.raw);
 
     for (i, tactic) in playbook.tactics.iter().enumerate() {
         let probe = generate_probe(&goal.raw, tactic);
@@ -550,6 +561,7 @@ pub fn run_playbook(
                 id: new_id(),
                 timestamp: now_iso(),
                 goal_hash: goal_h.clone(),
+                goal_id: Some(goal_id.clone()),
                 goal_excerpt: goal.raw.chars().take(200).collect(),
                 specialist: playbook.specialist.clone(),
                 approach: Some(Approach {
@@ -962,6 +974,7 @@ mod tests {
             axioms: vec!["sorry".into()],
             confidence: None,
             echidna_version: "2.4.0".into(),
+            result_id: None,
         };
         let with = AttemptResult::Succeeded {
             duration_ms: 3,

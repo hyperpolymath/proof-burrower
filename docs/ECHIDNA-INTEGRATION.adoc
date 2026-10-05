@@ -109,10 +109,16 @@ Implemented in `crates/burrower-core/src/echidna_contract.rs` and
   `echidna prove --help` and looks for `--output` as a whole option token.
   Present → contract mode; absent or the binary cannot run → legacy mode.
 . **Contract mode.** Burrower appends `--output json` and requires stdout
-  to be one line that parses as I-JSON (no duplicate keys, safe integers),
-  equals its own JCS canonicalisation byte for byte (via
-  `hyperpolymath/ijson-jcs`, pinned by git rev), names the `/1` schema, and
-  carries every field above with the right type. Extra fields are
+  to be one line that parses as JSON, equals its own RFC 8785 (JCS)
+  canonicalisation byte for byte, names the `/1` schema, and carries every
+  field above with the right type. Byte equality also enforces the I-JSON
+  limits the parser alone does not: a duplicate key collapses to one
+  member and an integer beyond ±(2^53−1) re-serialises differently, so
+  both fail as non-canonical. Canonicalisation uses the published
+  `serde_json_canonicalizer` crate, because the estate crate
+  `hyperpolymath/ijson-jcs` is private and this repository is public (a
+  git dependency on it cannot be fetched by CI or by anyone who downloads
+  the repo). Switch back once `ijson-jcs` is public or on crates.io. Extra fields are
   tolerated (additive change); removing or retyping a field needs `/2`.
 . **Mapping.**
 +
@@ -135,7 +141,39 @@ Implemented in `crates/burrower-core/src/echidna_contract.rs` and
   receipt and the ledger explanation says
   "a warrant, not a receipt".
 . **Ledger.** A receipt-backed success stores the receipt under the
-  record's `extra.receipt`.
+  record's `extra.receipt`, including its `result_id` (below).
+
+[[identifiers]]
+=== Identifiers
+
+All identifier minting lives in `crates/burrower-core/src/ids.rs`; nothing
+else in the workspace mints an id. The policy (owner, 2026-10-05) is v7 for
+things that happened and v8 for things that are:
+
+[cols="1,1,2"]
+|===
+|Function |Kind |Used for
+
+|`ids::new_record_id()` |UUIDv7 (RFC 9562 §5.7, `uuid` crate API)
+|Ledger record `id` (via `ledger::new_id`, a thin alias). Writers:
+ `attempt::run_playbook`, `oracle::record_to_ledger`, `ledger::record_reading`.
+|`ids::content_id(value)` |UUIDv8 (RFC 9562 §5.8 / Appendix B.2)
+|SHA-256 over the JCS bytes of `value`, first 16 bytes, version nibble `8`,
+ variant `10`. Same JSON content -> same id.
+|`ids::goal_content_id(text)` |UUIDv8 |Ledger `goal_id` (content id of the
+ goal text as a JSON string).
+|`ProofReceipt::from_result` |UUIDv8 |Receipt `result_id`: content id of
+ the prove result's contract fields.
+|===
+
+`goal_hash` (16 hex chars, non-cryptographic) is kept unchanged because the
+wasm ABI (`goal_hash_hex`, 16-byte buffer) and existing ledgers depend on
+it. Ledgers written before this change carry no `goal_id`; the field is
+optional on read. Record ids before this change were `<millis>-<seq>`
+strings, not UUIDs; old ledgers keep them.
+
+Not yet content-addressed: corpus entries (`corpus::IndexedLemma`) carry no
+id today; when they gain one it must come from `ids::content_id`.
 
 The receipt/warrant split follows the factive/non-factive distinction in
 `hyperpolymath/epistemic-types` (`FactiveModality`). It is copied as a
@@ -146,6 +184,9 @@ pattern; Burrower does not depend on that Agda library.
 * `echidna_contract::tests` — canonical parse, every status, planted
   non-canonical mutants (key order, whitespace), empty / multi-line /
   duplicate-key / unsafe-integer / wrong-schema / wrong-shape rejection.
+* `ids::tests` — same JCS content gives the same v8 id; the v8 id is the
+  SHA-256 prefix with exactly the version/variant bits changed; v7 record
+  ids carry version 7 and sort in minting order.
 * `attempt::tests` — fake echidna binaries for the contract path (every
   status, receipt transport into the ledger), a malformed-output liar, the
   legacy path, and a binary that advertises the flag but rejects it.
