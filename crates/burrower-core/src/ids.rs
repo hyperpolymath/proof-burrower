@@ -28,18 +28,28 @@ use uuid::Uuid;
 /// Within one process successive ids sort in minting order (the `uuid`
 /// crate keeps a monotonic counter inside the millisecond).
 ///
-/// On `wasm32-unknown-unknown` there is no clock or entropy source; this
-/// panics there, exactly as the `SystemTime::now` it replaces did. The
-/// wasm shim (`burrower-wasm`) never writes ledger records.
+/// On `wasm32-unknown-unknown` (no clock, no entropy) see the fallback
+/// definition below.
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub fn new_record_id() -> String {
     Uuid::now_v7().to_string()
 }
 
-/// See the non-wasm definition: no clock or entropy on this target.
+/// Degenerate UUIDv7 for `wasm32-unknown-unknown`, which has neither a
+/// clock nor an entropy source: timestamp 0 and a process-local counter in
+/// the random field, built through the `uuid` crate's `Builder` so the
+/// version and variant bits are still set by the library. Unique and
+/// ordered within one instance only. The wasm shim (`burrower-wasm`) never
+/// writes ledger records, so this exists to keep the crate compiling.
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 pub fn new_record_id() -> String {
-    panic!("new_record_id: wasm32-unknown-unknown has no clock or entropy source")
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let mut tail = [0u8; 10];
+    tail[2..].copy_from_slice(&SEQ.fetch_add(1, Ordering::SeqCst).to_be_bytes());
+    uuid::Builder::from_unix_timestamp_millis(0, &tail)
+        .into_uuid()
+        .to_string()
 }
 
 /// Content id of a JSON value: UUIDv8 over SHA-256 of its JCS bytes.
