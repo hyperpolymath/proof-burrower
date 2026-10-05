@@ -50,16 +50,134 @@ This doc covers *the wires between Burrower and ECHIDNA / echidnabot*.
                            └──────────────────────────┘
 ----
 
-== Today (no integration)
+== Today (what is wired)
 
 * `echidna prove <file>` — single-shot verification, returns pass/fail
 * `echidnabot` — receives push/PR webhooks, dispatches `echidna prove`,
   publishes a check run
 * Burrower's `attempt` subcommand subprocess-invokes `echidna prove` for
-  each (specialist × tactic) pair (this is the only existing wire today)
+  each (specialist × tactic) pair, and reads the result through the
+  `echidna.prove.result/1` contract when the installed echidna supports it
+  (<<prove-result-contract>>)
+* EI-1 (`--project-root`) and safe-learning (b) (`--sandbox`) are
+  implemented on both sides and forwarded by `ProverConfig`
+* BI-1 (`burrower serve`) is implemented on the Burrower side; no echidna
+  or echidnabot client calls it yet
 
-That third bullet is the *only* current integration point. Everything else
-in this document is **planned**.
+The third bullet is the only integration that runs end to end today
+(exercised by `tests/e2e.sh` in the `Burrower proof safety` workflow).
+Everything else in this document from EI-2 onward is **planned**.
+
+[[prove-result-contract]]
+== The `echidna.prove.result/1` contract
+
+Shared between echidna (producer), proof-burrower and echidnabot
+(consumers). Agreed 2026-10-05.
+
+=== Wire format
+
+`echidna prove ... --output json` prints **exactly one** JCS-canonical
+(RFC 8785) I-JSON (RFC 7493) object on stdout, then a newline. Human
+output stays the default when `--output` is absent.
+
+[source,json]
+----
+{"duration_ms":12,"echidna_version":"2.4.0","goal":"probe.thy","message":"","prover":"Isabelle","schema":"echidna.prove.result/1","status":"verified","trust":{"axioms":[],"confidence":null}}
+----
+
+[cols="1,1,3"]
+|===
+|Field |Type |Meaning
+
+|`schema` |string |Always `echidna.prove.result/1`.
+|`status` |string |`verified` \| `failed` \| `error` \| `timeout` \| `unknown`.
+|`prover` |string |Backend that produced the verdict.
+|`goal` |string |The goal or file echidna was asked to prove.
+|`duration_ms` |integer |echidna's timing; within ±(2^53−1) per I-JSON.
+|`message` |string |Diagnostic; may be empty.
+|`trust.confidence` |number or null |`null` unless echidna has a receipt-backed figure.
+|`trust.axioms` |array of string |Axioms / escapes the checked proof relies on.
+|`echidna_version` |string |Version of the emitting echidna.
+|===
+
+=== Consumer rules (proof-burrower)
+
+Implemented in `crates/burrower-core/src/echidna_contract.rs` and
+`attempt.rs`.
+
+. **Detection.** Once per echidna binary per process, Burrower runs
+  `echidna prove --help` and looks for `--output` as a whole option token.
+  Present → contract mode; absent or the binary cannot run → legacy mode.
+. **Contract mode.** Burrower appends `--output json` and requires stdout
+  to be one line that parses as I-JSON (no duplicate keys, safe integers),
+  equals its own JCS canonicalisation byte for byte (via
+  `hyperpolymath/ijson-jcs`, pinned by git rev), names the `/1` schema, and
+  carries every field above with the right type. Extra fields are
+  tolerated (additive change); removing or retyping a field needs `/2`.
+. **Mapping.**
++
+[cols="1,2"]
+|===
+|`status` |Burrower `AttemptResult`
+
+|`verified` + exit 0 |`Succeeded` with a `ProofReceipt` (prover, axioms, confidence, version)
+|`verified` + non-zero exit |`Failed` (contract violation: failure evidence wins)
+|`failed` |`Failed` with `message`
+|`unknown` |`Failed` (inconclusive)
+|`timeout` |`Timeout`
+|`error` |`Skipped` (infrastructure, no learning recorded)
+|malformed / non-canonical |`Failed` (contract violation) — never re-read as text
+|===
+. **Fallback.** Only when the flag is absent (detection) or clap rejects
+  it (`unexpected argument '--output'`, exit 2) does Burrower use the
+  legacy text markers (`Proof verified successfully` / `Proof verification
+  failed` on either stream, plus the exit code). A legacy success has no
+  receipt and the ledger explanation says
+  "a warrant, not a receipt".
+. **Ledger.** A receipt-backed success stores the receipt under the
+  record's `extra.receipt`.
+
+The receipt/warrant split follows the factive/non-factive distinction in
+`hyperpolymath/epistemic-types` (`FactiveModality`). It is copied as a
+pattern; Burrower does not depend on that Agda library.
+
+=== Tests
+
+* `echidna_contract::tests` — canonical parse, every status, planted
+  non-canonical mutants (key order, whitespace), empty / multi-line /
+  duplicate-key / unsafe-integer / wrong-schema / wrong-shape rejection.
+* `attempt::tests` — fake echidna binaries for the contract path (every
+  status, receipt transport into the ledger), a malformed-output liar, the
+  legacy path, and a binary that advertises the flag but rejects it.
+* `tests/e2e.sh` (CI `Burrower proof safety`) — real Isabelle through the
+  echidna pinned in `.github/workflows/proof-safety.yml`. That pin predates
+  the contract, so today this exercises the **legacy** path; bump the pin
+  once echidna ships `--output json` to exercise the contract path live.
+
+[[corpus-overlap]]
+== Overlap with echidna's corpus subsystem (recommendation)
+
+echidna ships `echidna corpus ingest|query|stats|crossquery|near|
+export-octads` over 20 prover adapters (Agda, Coq, Lean, Isabelle, Idris2,
+Mizar, Metamath, HOL4, HOL Light, ACL2, TPTP, SMT-LIB, Why3, F*, Dafny,
+MiniF2F, ProofNet, ...), with dependency closure, a cross-prover synonym
+table, and hashing-trick vector embeddings (`near`, cosine similarity).
+
+Burrower's `corpus` + `ranking` index `.thy` / `.v` / `.lean` and rank by
+Jaccard over signature tokens. Overlap is real: both build an inverted
+index of lemma signatures and answer "what is near this goal".
+
+What only Burrower has: the specialist swarm (per-vocabulary readings,
+consensus homes, boundary objects), tactic playbooks, the attempt loop and
+the ledger.
+
+**Recommendation.** Do not grow Burrower's own indexer further. Keep it as
+the zero-dependency fallback (it powers the WASM shim and runs without
+echidna), and add an optional retrieval backend that shells out to
+`echidna corpus near --format json` when echidna is present, so specialists
+rank echidna's richer candidates. That needs a stable JSON contract for
+`corpus near` analogous to `echidna.prove.result/1`; until echidna defines
+one, the two indexers stay separate. Not implemented in this change.
 
 == ECHIDNA — three concrete changes
 

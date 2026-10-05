@@ -199,7 +199,16 @@ pub fn goal_hash(goal_text: &str) -> String {
     format!("{:016x}", h.finish())
 }
 
-/// New record id: epoch millis + sequence counter (process-local).
+/// Mint a new ledger record id: epoch millis + a process-local sequence.
+///
+/// **This is the only identifier-minting function in proof-burrower.**
+/// Every ledger writer (`attempt::run_playbook`, `oracle::record_to_ledger`,
+/// [`record_reading`]) calls it; nothing else mints ids. The format is
+/// `<13-digit millis>-<4-digit seq>`, which sorts by time within one
+/// process. It is not a UUID: two processes appending in the same
+/// millisecond can mint the same id. Moving to the estate UUIDv7 standard
+/// (`standards/docs/UUID-V7-ESTATE-STANDARD.adoc`) is a recorded follow-up
+/// and would change only this function.
 pub fn new_id() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static SEQ: AtomicU64 = AtomicU64::new(0);
@@ -211,6 +220,10 @@ pub fn new_id() -> String {
     format!("{millis:013}-{n:04}")
 }
 
+/// Timestamp for a ledger record.
+///
+/// Despite the name this is `epoch:<seconds>`, not ISO 8601; see the
+/// inline note. Kept as is so existing ledgers stay comparable.
 pub fn now_iso() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)

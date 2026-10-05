@@ -2,7 +2,8 @@
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Proof Burrower CLI.
 //!
-//! Two subcommands:
+//! Subcommands: `index`, `find`, `swarm`, `attempt`, `ledger`, `serve`.
+//! The first two:
 //!
 //! - `burrower index <corpus-root> --output <index.json>` — walk a
 //!   library directory and persist a JSON index.
@@ -86,11 +87,8 @@ enum Cmd {
     Attempt {
         /// The proof goal as a string. Quote it.
         goal: String,
-        /// Path to the echidna binary.
-        #[arg(
-            long,
-            default_value = "/var/mnt/eclipse/repos/echidna/target/debug/echidna"
-        )]
+        /// The echidna binary: a path, or a bare name looked up on PATH.
+        #[arg(long, default_value = "echidna")]
         echidna: PathBuf,
         /// Per-attempt timeout (seconds), passed to `echidna prove -t`.
         #[arg(long, default_value_t = 60)]

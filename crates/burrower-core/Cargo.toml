@@ -15,3 +15,7 @@ serde_json  = { workspace = true }
 walkdir     = { workspace = true }
 regex       = { workspace = true }
 tempfile    = "3"
+# RFC 8785 (JCS) + RFC 7493 (I-JSON) for the echidna.prove.result/1
+# contract. Not on crates.io; pinned by rev so standalone builds are
+# reproducible (a path dependency would break them).
+ijson-jcs   = { git = "https://github.com/hyperpolymath/ijson-jcs", rev = "0fdeea716fd558e9807362acf6f8202d56d8d88f" }
