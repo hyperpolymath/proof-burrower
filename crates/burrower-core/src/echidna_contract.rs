@@ -91,9 +91,10 @@ pub enum ContractError {
     Empty,
     /// stdout held more than one line (the contract allows exactly one object).
     ExtraOutput,
-    /// Not I-JSON (bad JSON, duplicate keys, unsafe integers, ...).
+    /// Not parseable JSON (syntax error, lone surrogate, ...).
     NotIJson(String),
-    /// Valid I-JSON, but not byte-identical to its JCS canonical form.
+    /// Parses, but is not byte-identical to its RFC 8785 canonical form.
+    /// This includes duplicate keys and integers beyond ±(2^53−1).
     NotCanonical,
     /// The object does not have the contract's shape.
     Shape(String),
@@ -120,7 +121,8 @@ impl std::error::Error for ContractError {}
 /// Parse and validate echidna's stdout as one `echidna.prove.result/1` object.
 ///
 /// Accepts exactly one line (a single trailing newline is allowed). The line
-/// must be I-JSON, must equal its own JCS canonicalisation byte for byte,
+/// must parse as JSON, must equal its own JCS canonicalisation byte for byte
+/// (which rules out duplicate keys and unsafe integers, the I-JSON limits),
 /// must name [`SCHEMA`], and must carry every contract field with the right
 /// type. Unknown extra fields are tolerated so that additive changes do not
 /// break older consumers; removing or retyping a field needs a new schema.
@@ -132,10 +134,14 @@ pub fn parse_prove_result(stdout: &str) -> Result<ProveResult, ContractError> {
     if line.contains('\n') {
         return Err(ContractError::ExtraOutput);
     }
-    let value = ijson_jcs::parse_json(line, ijson_jcs::JsonMode::Strict)
+    let value: serde_json::Value =
+        serde_json::from_str(line).map_err(|e| ContractError::NotIJson(e.to_string()))?;
+    // Byte equality with the RFC 8785 form also enforces the I-JSON rules
+    // the parser alone does not: a duplicate key collapses to one member,
+    // and an integer beyond ±(2^53−1) re-serialises as a different number,
+    // so either makes the canonical form differ from the input.
+    let canonical = serde_json_canonicalizer::to_string(&value)
         .map_err(|e| ContractError::NotIJson(e.to_string()))?;
-    let canonical =
-        ijson_jcs::to_jcs_string(&value).map_err(|e| ContractError::NotIJson(e.to_string()))?;
     if canonical != line {
         return Err(ContractError::NotCanonical);
     }
@@ -298,12 +304,16 @@ mod tests {
             parse_prove_result("Proof verified successfully"),
             Err(ContractError::NotIJson(_))
         ));
-        assert!(matches!(
+        assert_eq!(
             parse_prove_result(r#"{"a":1,"a":2}"#),
-            Err(ContractError::NotIJson(_))
-        ));
-        assert!(matches!(
+            Err(ContractError::NotCanonical)
+        );
+        assert_eq!(
             parse_prove_result(r#"{"duration_ms":9007199254740993}"#),
+            Err(ContractError::NotCanonical)
+        );
+        assert!(matches!(
+            parse_prove_result(r#"{"goal":"\ud800"}"#),
             Err(ContractError::NotIJson(_))
         ));
         assert_eq!(
@@ -318,6 +328,22 @@ mod tests {
             parse_prove_result(&GOOD.replace("\"verified\"", "\"proved\"")),
             Err(ContractError::Shape(_))
         ));
+    }
+
+    /// Numbers follow the ECMAScript form RFC 8785 requires.
+    #[test]
+    fn confidence_numbers_must_be_in_ecmascript_form() {
+        let with = |c: &str| GOOD.replace("\"confidence\":null", &format!("\"confidence\":{c}"));
+        assert!(parse_prove_result(&with("0.5")).is_ok());
+        assert!(parse_prove_result(&with("1e-7")).is_ok());
+        assert_eq!(
+            parse_prove_result(&with("0.50")),
+            Err(ContractError::NotCanonical)
+        );
+        assert_eq!(
+            parse_prove_result(&with("1.0")),
+            Err(ContractError::NotCanonical)
+        );
     }
 
     /// Every contract error renders as a single non-empty line.
