@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Proof Burrower — Architecture
+:toc:
+
+== Overview
+
+Proof Burrower is a Rust workspace with three crates and one external
+process boundary (ECHIDNA). It never proves anything itself: it finds
+where a goal belongs, decides what is worth trying, asks ECHIDNA to try
+it, and keeps a ledger of the results.
+
+[source]
+----
+goal text ──> goal::parse_goal ──> Goal{tokens, identifiers}
+                                      │
+          corpus::Corpus::index <─────┤ (library tree → inverted index)
+                                      ▼
+                     ranking::rank / specialist::Swarm
+                     (Jaccard homes; per-specialist readings; synthesis)
+                                      │
+                         [optional] oracle::run  ── julia tools/julia-oracle.jl
+                                      │            (tropical-types; may veto)
+                                      ▼
+                     attempt::run_playbook ── echidna prove ... [--output json]
+                                      │            parsed by echidna_contract
+                                      ▼
+                          ledger::Ledger (append-only JSONL)
+----
+
+== Crates
+
+[cols="1,3"]
+|===
+|Crate |Responsibility
+
+|`burrower-core`
+|All logic. Modules: `goal`, `corpus`, `ranking`, `specialist` (swarm),
+`attempt` (probe generation, echidna invocation, outcome mapping),
+`echidna_contract` (`echidna.prove.result/1` parser and capability
+detection), `oracle` (pre-proof numerical oracle), `ledger`, `serve`
+(Unix-socket service, thread per connection).
+
+|`burrower-cli`
+|`burrower` binary: thin clap front end over `burrower-core`.
+
+|`burrower-wasm`
+|C-ABI shim (`*const u8` + length in, caller buffer out) so the engine
+can be shipped as a `.wasm` artefact for ECHIDNA's typed-wasm oracle.
+|===
+
+== Process boundaries
+
+* **ECHIDNA** — subprocess `echidna prove <probe.thy> --prover Isabelle -t N
+  [--project-root P] [--sandbox M] [--output json]`. Capability is detected
+  once per binary from `echidna prove --help`. See
+  `ECHIDNA-INTEGRATION.adoc`.
+* **Julia oracle** — subprocess `julia [--project=P] tools/julia-oracle.jl
+  <descriptor.a2ml>` from `hyperpolymath/tropical-types`; one verdict line
+  on stdout.
+* **Socket clients** — `burrower serve` speaks line-delimited JSON
+  `{cmd, args}` → `{ok, result|error}`.
+
+== Identifiers and persistence
+
+* The ledger is JSON-lines on local disk, single writer.
+* `crates/burrower-core/src/ids.rs` is the only identifier-minting module:
+  `new_record_id()` (UUIDv7) for ledger records and `content_id(value)`
+  (UUIDv8 over SHA-256 of the JCS bytes) for goals and prove results. See
+  `docs/ECHIDNA-INTEGRATION.adoc` § Identifiers. `ledger::goal_hash` still
+  keys records by goal (wasm ABI and existing ledgers depend on it).
+* Probe files live in a private per-attempt temporary directory that is
+  removed after the child exits.
+
+== Trust model
+
+A success parsed from `echidna.prove.result/1` carries a `ProofReceipt`
+(prover, axioms, confidence, echidna version) and is recorded as such. A
+success inferred from legacy text markers carries none and the ledger says
+so. An oracle `agree` verdict is numerical evidence, not a proof.
+
+== Out of scope here
+
+The Idris2 ABI / Zig FFI under `src/interface/` is the RSR template layer
+and is not yet connected to the Rust crates. See `status/PROOF-STATUS.adoc`.

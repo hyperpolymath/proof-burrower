@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# STATE.a2ml v2 — Thin Session Journal for rsr-template-repo
+# STATE.a2ml v2 — Thin Session Journal for proof-burrower
 # See: standards/a2ml-templates/STATE.a2ml.v2.spec.adoc
+# Milestones and blockers: docs/status/ROADMAP.adoc
 
 @state(version="2.0"):
-phase: "maintenance"
-next_action: "Harden multi-forge sync for GitLab/Bitbucket mirroring edge cases"
-last_action: "Updated template with 6a2 standards and v2 STATE format"
-updated: 2026-04-23T12:00:00Z
+phase: "pre-alpha"
+next_action: "Bump the proof-safety ECHIDNA pin once echidna ships `prove --output json`, so the live e2e exercises the contract path"
+last_action: "First-run start point: identity restored, affinescript/ removed, echidna.prove.result/1 consumer with legacy fallback"
+updated: 2026-10-05T00:00:00Z
 @end

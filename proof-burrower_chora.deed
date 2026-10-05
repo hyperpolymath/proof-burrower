@@ -1,0 +1,67 @@
+;; SPDX-License-Identifier: MPL-2.0
+;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;
+; The repo deed of proof-burrower (one-deed-per-repo doctrine, standards#837).
+;
+; Scope of this first deed (2026-10-05): identity, clade, forges, lineage,
+; status, maturity and ecosystem, translated from
+; .machine_readable/CLADE.a2ml and .machine_readable/descriptiles/
+; {STATE,ECOSYSTEM}.a2ml. Those descriptiles are still read by
+; openssf-compliance.yml, the contractiles Justfile and
+; scripts/validate-template.sh, so they stay until those consumers move to
+; this deed; until then a change to identity or status must be made in both
+; places. Milestones and blockers live in docs/status/ROADMAP.adoc.
+(repo-deed
+  :schema-version "1.0.0"
+  :canonical-name "proof-burrower"
+  :beholding-chora #u5"estate/chora"
+  :repo-uuid #u5"github.com/hyperpolymath/proof-burrower"
+  (identity
+    :primary-forge github
+    :owner "hyperpolymath"
+    :prefixed-name "rm-proof-burrower")
+  (clade
+    :primary rm
+    :primary-name "Repo Management & Tooling"
+    :secondary (gv)
+    :assigned "2026-03-16"
+    :rationale "Inherited unchanged from the template copy (rm, gv). Proof Burrower is a proof-search companion to ECHIDNA (clade fv); the assignment needs a gv-clade-index review before it is changed here.")
+  (forges
+    :github "hyperpolymath/proof-burrower"
+    :gitlab "hyperpolymath/proof-burrower"
+    :bitbucket "hyperpolymath/proof-burrower")
+  (lineage
+    :type standalone
+    :parent ""
+    :born "2026-03-16"
+    :previous-names ())
+  (status
+    :phase active
+    :since "2026-04-26"
+    :present #t
+    :aliases ()
+    :merged-into ""
+    :superseded-by ""
+    :successors ()
+    :ended ""
+    (history
+      (entry :phase active :since "2026-04-26" :note "first commit of the Rust engine; pre-alpha v0.0.1")))
+  (maturity
+    :level experimental)
+  (ecosystem
+    :project "proof-burrower"
+    :ecosystem "hyperpolymath"
+    :position-type "tool"
+    :purpose "Locate the mathematical home of a proof goal, read it through specialist vocabularies, attempt tactic playbooks through ECHIDNA, and keep an append-only ledger of outcomes."
+    :not ("a theorem prover (ECHIDNA is the prover)"
+          "a proof corpus (it indexes other libraries)")
+    :pipeline-position "pre-prover"
+    :chain "author goal → proof-burrower (find/swarm/attempt) → echidna prove → ledger"
+    :pipeline-notes "Consumer of ECHIDNA's echidna.prove.result/1 contract (docs/ECHIDNA-INTEGRATION.adoc); candidate consumer for echidnabot via `burrower serve`."
+    :coordination echidna
+    (related :name "echidna" :relationship prover :notes "Subprocess `echidna prove`; contract echidna.prove.result/1.")
+    (related :name "echidnabot" :relationship planned-consumer :notes "Could consult `burrower serve` on failed proofs; not wired today.")
+    (related :name "tropical-types" :relationship oracle :notes "tools/julia-oracle.jl, optional pre-proof numerical oracle (caller-supplied path).")
+    (related :name "ijson-jcs" :relationship library :notes "RFC 8785 / RFC 7493 validation of the prove-result contract (git dependency pinned by rev).")
+    (related :name "epistemic-types" :relationship pattern :notes "Receipt vs warrant distinction copied as a pattern; no dependency.")
+    (related :name "standards" :relationship parent :notes "RSR policies and reusable CI workflows.")))

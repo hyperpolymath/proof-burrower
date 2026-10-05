@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Proof Burrower - Explainme
+:toc:
+:icons: font
+
+This file maps each claim in `README.adoc` to the code that backs it, and
+says how far each claim goes (implemented, tested, wired, proved).
+
+== "Finds the mathematical home of a goal"
+
+Implemented and unit-tested: `crates/burrower-core/src/{goal,corpus,ranking}.rs`.
+Ranking is Jaccard similarity over signature tokens; it is a relevance
+heuristic, not a semantic match.
+
+== "Routes the goal through specialists"
+
+Implemented and unit-tested: `crates/burrower-core/src/specialist.rs`;
+specialist definitions in `agents/*.007`. Three specialists today
+(Algebraist, Combinatorialist, Order-Theorist).
+
+== "Attempts proofs through ECHIDNA"
+
+Implemented, unit-tested with fake binaries, and wired end to end against
+real Isabelle in CI (`tests/e2e.sh`, workflow `Burrower proof safety`):
+`crates/burrower-core/src/attempt.rs`. Isabelle only.
+
+== "Reads ECHIDNA's result as a receipt"
+
+Implemented and unit-tested: `crates/burrower-core/src/echidna_contract.rs`.
+Live coverage waits on the pinned echidna gaining `prove --output json`;
+until then CI exercises the legacy fallback. Contract:
+`docs/ECHIDNA-INTEGRATION.adoc`.
+
+== "Keeps a ledger"
+
+Implemented and unit-tested: `crates/burrower-core/src/ledger.rs`.
+Single writer, no locking. Record ids are UUIDv7 and goal ids UUIDv8
+content ids, both minted only in `crates/burrower-core/src/ids.rs` (see
+`docs/ECHIDNA-INTEGRATION.adoc` § Identifiers).
+
+== What is not claimed
+
+* Nothing in Burrower is formally proved. `verification/` and
+  `src/interface/` are RSR template scaffolding; see
+  `docs/status/PROOF-STATUS.adoc`.
+* An oracle `agree` verdict is numerical evidence, not a proof.

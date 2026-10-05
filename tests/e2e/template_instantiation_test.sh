@@ -209,7 +209,7 @@ log_step "Verifying critical files have been instantiated"
 
 CRITICAL_FILES=(
     "README.adoc"
-    "EXPLAINME.adoc"
+    "docs/EXPLAINME.adoc"
     "Justfile"
 )
 

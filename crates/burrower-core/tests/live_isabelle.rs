@@ -31,7 +31,10 @@ fn negative_control_requires_an_unproved_goal_diagnostic() {
             reason: "missing executable".into(),
         },
         AttemptResult::Timeout,
-        AttemptResult::Succeeded { duration_ms: 0 },
+        AttemptResult::Succeeded {
+            duration_ms: 0,
+            receipt: None,
+        },
     ] {
         assert!(!is_isabelle_rejection(&result), "{result:?}");
     }

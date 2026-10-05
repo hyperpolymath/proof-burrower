@@ -34,12 +34,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// One ledger record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LedgerRecord {
-    /// Unique time-orderable id (millis since epoch + counter).
+    /// Unique time-ordered record id (UUIDv7, see [`crate::ids`]).
     pub id: String,
     /// ISO-8601-ish timestamp string, UTC.
     pub timestamp: String,
     /// SHA-style hash of the goal (8 hex chars is enough at our scale).
     pub goal_hash: String,
+    /// Content id of the goal text (UUIDv8 over its JCS bytes, see
+    /// [`crate::ids::content_id`]). Absent in ledgers written before
+    /// 2026-10-05; `goal_hash` stays for those and for the wasm ABI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal_id: Option<String>,
     /// First 200 chars of the goal text, for human reading.
     pub goal_excerpt: String,
     /// Which specialist authored this record.
@@ -189,9 +194,10 @@ impl Ledger {
 // Helpers
 // ---------------------------------------------------------------------
 
-/// Make a goal-hash from text. 8 hex chars from a fast non-cryptographic
-/// hash is enough for a per-repo ledger; the goal text itself is also
-/// kept (excerpted) in each record for verification.
+/// Make a goal-hash from text: 16 hex chars from a fast non-cryptographic
+/// hash, enough for a per-repo ledger and the fixed-size wasm ABI. The
+/// goal text itself is also kept (excerpted) in each record. For a stable
+/// cross-tool content address use [`crate::ids::goal_content_id`].
 pub fn goal_hash(goal_text: &str) -> String {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -199,18 +205,18 @@ pub fn goal_hash(goal_text: &str) -> String {
     format!("{:016x}", h.finish())
 }
 
-/// New record id: epoch millis + sequence counter (process-local).
+/// Mint a new ledger record id (UUIDv7).
+///
+/// Thin alias for [`crate::ids::new_record_id`], the crate's single
+/// record-id minting function; kept so ledger writers read naturally.
 pub fn new_id() -> String {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static SEQ: AtomicU64 = AtomicU64::new(0);
-    let millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let n = SEQ.fetch_add(1, Ordering::SeqCst);
-    format!("{millis:013}-{n:04}")
+    crate::ids::new_record_id()
 }
 
+/// Timestamp for a ledger record.
+///
+/// Despite the name this is `epoch:<seconds>`, not ISO 8601; see the
+/// inline note. Kept as is so existing ledgers stay comparable.
 pub fn now_iso() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -232,6 +238,7 @@ pub fn record_reading(
         id: new_id(),
         timestamp: now_iso(),
         goal_hash: goal_hash(goal_text),
+        goal_id: Some(crate::ids::goal_content_id(goal_text)),
         goal_excerpt: goal_text.chars().take(200).collect(),
         specialist: specialist.to_string(),
         approach: Some(Approach {
@@ -263,6 +270,7 @@ mod tests {
             id: new_id(),
             timestamp: now_iso(),
             goal_hash: goal_hash("lemma foo: x = y"),
+            goal_id: None,
             goal_excerpt: "lemma foo: x = y".to_string(),
             specialist: "Algebraist".to_string(),
             approach: Some(Approach {
@@ -298,6 +306,7 @@ mod tests {
         let a = new_id();
         let b = new_id();
         assert_ne!(a, b);
+        assert!(a < b, "record ids are time-ordered");
     }
 
     #[test]

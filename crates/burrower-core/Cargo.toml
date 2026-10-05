@@ -15,3 +15,18 @@ serde_json  = { workspace = true }
 walkdir     = { workspace = true }
 regex       = { workspace = true }
 tempfile    = "3"
+# RFC 8785 (JCS) canonicalisation for the echidna.prove.result/1 contract.
+# The estate crate hyperpolymath/ijson-jcs is private, so a public repo
+# cannot build against it; this published RFC 8785 implementation is used
+# until ijson-jcs is public (see docs/ECHIDNA-INTEGRATION.adoc).
+serde_json_canonicalizer = "0.3"
+# Identifier minting (crate::ids): UUIDv7 record ids from the library API
+# (the estate standard forbids hand-rolled version bits) and RFC 9562
+# Appendix B.2 UUIDv8 content ids over SHA-256 of the JCS bytes.
+# wasm32-unknown-unknown has no clock or entropy source, so v7 (which needs
+# both) is enabled only on other targets; see ids::new_record_id.
+uuid        = { version = "1.10", features = ["v8"] }
+sha2        = "0.10"
+
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+uuid        = { version = "1.10", features = ["v7", "v8"] }

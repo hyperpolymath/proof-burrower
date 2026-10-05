@@ -556,7 +556,7 @@ verify:
         fi
     }
 
-    check_either "SECURITY.md" "SECURITY.adoc"
+    check_either ".github/SECURITY.md" "SECURITY.md"
     check_file "LICENSE"
     check_either "CONTRIBUTING.md" "CONTRIBUTING.adoc"
     check_either "README.adoc" "README.md"
@@ -1321,7 +1321,7 @@ tour:
     @echo "2. Available commands: just --list"
     @echo ""
     @echo "3. Read README.adoc for full overview"
-    @echo "4. Read EXPLAINME.adoc for architecture decisions"
+    @echo "4. Read docs/EXPLAINME.adoc for architecture decisions"
     @echo "5. Run 'just doctor' to check your setup"
     @echo ""
     @echo "Tour complete! Try 'just --list' to see all available commands."

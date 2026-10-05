@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Proof Burrower Roadmap
+
+== Current status (2026-10-05)
+
+Pre-alpha, v0.0.1. Implemented and tested: goal parsing, corpus index and
+Jaccard ranking, the three-specialist swarm, Isabelle attempt playbooks via
+ECHIDNA, the `echidna.prove.result/1` consumer with legacy fallback, the
+JSONL ledger, `burrower serve` (Unix socket), the tropical-types oracle
+bridge, and the WASM shim. CI: `rust-ci` (fmt, clippy, test, audit,
+llvm-cov 95% floor) and `Burrower proof safety` (live Isabelle e2e).
+
+Not done: Lean/Coq dispatch, ledger locking, ISO timestamps, UUIDv7 ids,
+any proof about Burrower itself (see `PROOF-STATUS.adoc`).
+
+== Milestones
+
+=== v0.1.0 — usable librarian
+* [x] `index` / `find` / `swarm` / `attempt` / `ledger` / `serve`
+* [x] Contract-based result parsing (`echidna.prove.result/1`)
+* [ ] Bump the proof-safety ECHIDNA pin to a contract-speaking echidna
+* [ ] Stable goal hash (today `DefaultHasher`, which Rust does not promise to keep stable)
+* [ ] ISO 8601 timestamps and UUIDv7 ledger ids (`ledger::new_id` is the single site)
+* [ ] Repo deed (`proof-burrower_chora.deed`) replacing STATE/META/ECOSYSTEM/AGENTIC/CLADE (rsr-template-repo#209); needs `openssf-compliance.yml` updated in the same change
+
+=== v0.2.0 — wider reach
+* [ ] Lean and Coq dispatch in `attempt`
+* [ ] Optional retrieval through `echidna corpus near` (see `docs/ECHIDNA-INTEGRATION.adoc` §corpus overlap)
+* [ ] echidnabot consumes `burrower serve` (EBI-1)
+
+== Blockers
+
+* echidna `prove --output json` must land upstream before the live e2e can exercise the contract path.

@@ -28,7 +28,9 @@
 
 pub mod attempt;
 pub mod corpus;
+pub mod echidna_contract;
 pub mod goal;
+pub mod ids;
 pub mod ledger;
 pub mod oracle;
 pub mod ranking;
@@ -36,11 +38,12 @@ pub mod serve;
 pub mod specialist;
 
 pub use attempt::{
-    generate_probe, run_playbook, run_probe, AttemptResult, Playbook, ProofAttempt, ProverConfig,
-    TacticTemplate,
+    generate_probe, run_playbook, run_probe, AttemptResult, Playbook, ProofAttempt, ProofReceipt,
+    ProverConfig, TacticTemplate,
 };
 pub use corpus::{Corpus, IndexedLemma, LibraryKind};
 pub use goal::{parse_goal, Goal};
+pub use ids::{content_id, goal_content_id, new_record_id};
 pub use ledger::{
     goal_hash, new_id, now_iso, record_reading, Approach, Learning, Ledger, LedgerRecord,
     RecordResult,

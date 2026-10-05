@@ -10,8 +10,11 @@
 //! `pattern_kind = oracle-counter-example`.
 //!
 //! The oracle itself is the Julia process at
-//! `tropical-resource-typing/tools/julia-oracle.jl`, invoked with a
-//! single A2ML descriptor argument. We parse the verdict line from
+//! `tools/julia-oracle.jl` in `hyperpolymath/tropical-types` (formerly
+//! `tropical-resource-typing`; last checked against tropical-types
+//! `ad7bfdfd5699931df56b1241c60239a4085c203e`). The caller supplies the
+//! script path ([`OracleConfig::script`]), so the pin is the caller's
+//! checkout. It is invoked with a single A2ML descriptor argument. We parse the verdict line from
 //! stdout — keeping a small surface so adding new oracle families
 //! (Kleene-star fixed-point, walks closure, …) only requires adding a
 //! new family handler in the Julia side.
@@ -215,6 +218,7 @@ pub fn record_to_ledger(
         id: new_id(),
         timestamp: now_iso(),
         goal_hash: goal_hash(&goal.raw),
+        goal_id: Some(crate::ids::goal_content_id(&goal.raw)),
         goal_excerpt: goal.raw.chars().take(200).collect(),
         specialist: "Oracle".to_string(),
         approach: Some(Approach {

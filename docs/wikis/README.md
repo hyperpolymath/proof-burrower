@@ -2,14 +2,6 @@
 <!-- Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
 # Project Wikis
 
-This directory contains the source files for the project wiki. It is intended for long-form documentation, deep-dives, and community-maintained knowledge.
-
-## Structure
-
-* **Core Concepts:** Fundamental architectural ideas.
-* **Workflows:** Step-by-step guides for contributors.
-* **Glossary:** Definitions of project-specific terminology.
-
-## Wiki Synchronization
-
-Changes made here should be synchronised with the forge-hosted wiki (GitHub/GitLab) using the project's sync scripts.
+Source for the forge wiki at <https://github.com/hyperpolymath/proof-burrower/wiki>.
+Every `*.md` here except this README is a wiki page (`Home.md` is the landing
+page). Edit pages here, then push them with `scripts/sync-wiki.sh`.

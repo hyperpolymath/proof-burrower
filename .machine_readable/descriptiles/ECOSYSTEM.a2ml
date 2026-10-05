@@ -1,25 +1,25 @@
 # SPDX-License-Identifier: MPL-2.0
-# ECOSYSTEM.a2ml — Ecosystem position for rsr-template-repo
-# Converted and updated 2026-04-23
+# ECOSYSTEM.a2ml — Ecosystem position for proof-burrower
 
 [metadata]
-project = "rsr-template-repo"
+project = "proof-burrower"
 ecosystem = "hyperpolymath"
 
 [position]
-type = "infrastructure"
-purpose = "Canonical RSR-compliant repository template providing scaffolding for all hyperpolymath projects — including CI/CD, AI manifests, ABI/FFI standards, container ecosystem, and governance infrastructure."
+type = "tool"
+purpose = "Locate the mathematical home of a proof goal, read it through specialist vocabularies, attempt tactic playbooks through ECHIDNA, and keep an append-only ledger of outcomes."
 
 [pipeline]
-position = "foundation"
-chain = "standards → rsr-template-repo → all-other-repos"
-notes = "This repository serves as the practical implementation of the Hyperpolymath standards. It is the root of the 'scaffolding' tree for the entire ecosystem."
+position = "pre-prover"
+chain = "author goal → proof-burrower (find/swarm/attempt) → echidna prove → ledger"
+notes = "Consumer of ECHIDNA's echidna.prove.result/1 contract; candidate consumer for echidnabot via `burrower serve`."
 
 [related-projects]
 projects = [
-  { name = "standards", relationship = "parent", notes = "Defines the high-level policies and specifications that this template implements." },
-  { name = "rhodium-standard-repositories", relationship = "specification", notes = "The formal specification of the RSR standard." },
-  { name = "git-rsr-certified", relationship = "tooling", notes = "Universal RSR compliance engine that validates repositories against the standards defined here." },
-  { name = "stapeln", relationship = "integration", notes = "Container ecosystem standard integrated into the template." },
-  { name = "k9-svc", relationship = "integration", notes = "Self-validating components framework used for deployment and validation." },
+  { name = "echidna", relationship = "prover", notes = "Subprocess `echidna prove`; contract echidna.prove.result/1 (docs/ECHIDNA-INTEGRATION.adoc)." },
+  { name = "echidnabot", relationship = "planned-consumer", notes = "Could consult `burrower serve` on failed proofs; not wired today." },
+  { name = "tropical-types", relationship = "oracle", notes = "tools/julia-oracle.jl, optional pre-proof numerical oracle (caller-supplied path)." },
+  { name = "ijson-jcs", relationship = "library", notes = "RFC 8785 / RFC 7493 validation of the prove-result contract (git dependency pinned by rev)." },
+  { name = "epistemic-types", relationship = "pattern", notes = "Receipt vs warrant distinction copied as a pattern; no dependency." },
+  { name = "standards", relationship = "parent", notes = "RSR policies and reusable CI workflows." },
 ]

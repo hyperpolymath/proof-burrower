@@ -14,7 +14,10 @@
 //! 1. [`generate_probe`] wraps a goal + a candidate tactic into a
 //!    self-contained Isabelle probe file.
 //! 2. [`run_probe`] invokes `echidna prove --prover Isabelle` as a
-//!    subprocess and parses the output.
+//!    subprocess. When the installed echidna offers `--output json` it
+//!    asks for the `echidna.prove.result/1` object and parses it (see
+//!    [`crate::echidna_contract`]); otherwise it falls back to the legacy
+//!    text markers.
 //! 3. The result is recorded as a [`LedgerRecord`] with structured
 //!    `Approach`, `Result`, and (if a clear lesson is extractable)
 //!    `Learning` blocks.
@@ -27,14 +30,19 @@
 //!   useful data (the ledger records "failed: needs import X").
 //! - No timeout enforcement beyond what `echidna prove -t` honours.
 
+use crate::echidna_contract::{
+    detect_output_mode, output_tolerating_busy, parse_prove_result, rejected_output_flag,
+    remember_output_mode, OutputMode, ProveResult, ProveStatus, SCHEMA,
+};
 use crate::goal::Goal;
 use crate::ledger::{
     goal_hash, new_id, now_iso, Approach, Learning, Ledger, LedgerRecord, RecordResult,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::process::Command;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 use std::time::Instant;
 
 /// One tactic that a specialist knows how to try.
@@ -59,7 +67,7 @@ pub struct Playbook {
 /// Configuration for prover-backend invocation.
 #[derive(Debug, Clone)]
 pub struct ProverConfig {
-    /// Absolute path to the `echidna` binary.
+    /// The `echidna` binary: a path, or a bare name looked up on `PATH`.
     pub echidna_path: PathBuf,
     /// Per-attempt timeout (passed to `echidna prove -t`).
     pub timeout_secs: u32,
@@ -92,11 +100,56 @@ impl Default for ProverConfig {
     }
 }
 
+/// What a success rests on, transported from `echidna.prove.result/1`.
+///
+/// Present only when echidna emitted the contract object; a success read
+/// from legacy text markers carries no receipt.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProofReceipt {
+    /// Contract schema the receipt was parsed from.
+    pub schema: String,
+    /// Backend that checked the proof.
+    pub prover: String,
+    /// Axioms the checked proof depends on.
+    pub axioms: Vec<String>,
+    /// echidna's confidence, if it reported one.
+    pub confidence: Option<f64>,
+    /// The echidna version that issued the receipt.
+    pub echidna_version: String,
+    /// Content id of the prove result (UUIDv8 over the JCS bytes of its
+    /// contract fields, see [`crate::ids::content_id`]); identical results
+    /// share an id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_id: Option<String>,
+}
+
+impl ProofReceipt {
+    /// Build a receipt from a parsed prove result.
+    pub fn from_result(r: &ProveResult) -> Self {
+        let result_id = serde_json::to_value(r)
+            .ok()
+            .and_then(|v| crate::ids::content_id(&v).ok())
+            .map(|u| u.to_string());
+        Self {
+            schema: r.schema.clone(),
+            prover: r.prover.clone(),
+            axioms: r.trust.axioms.clone(),
+            confidence: r.trust.confidence,
+            echidna_version: r.echidna_version.clone(),
+            result_id,
+        }
+    }
+}
+
 /// Outcome of one proof attempt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AttemptResult {
     Succeeded {
         duration_ms: u64,
+        /// `Some` when echidna issued an `echidna.prove.result/1` receipt;
+        /// `None` when success was inferred from legacy text markers.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        receipt: Option<ProofReceipt>,
     },
     Failed {
         error: String,
@@ -110,9 +163,11 @@ pub enum AttemptResult {
 }
 
 impl AttemptResult {
+    /// True for [`AttemptResult::Succeeded`].
     pub fn is_success(&self) -> bool {
         matches!(self, AttemptResult::Succeeded { .. })
     }
+    /// Ledger status word for this outcome.
     pub fn status_string(&self) -> &'static str {
         match self {
             AttemptResult::Succeeded { .. } => "succeeded",
@@ -273,19 +328,66 @@ pub fn run_probe(probe_text: &str, config: &ProverConfig, probe_filename: &str) 
             reason: format!("probe write failed: {e}"),
         };
     }
-    if !config.echidna_path.exists() {
+    let Some(echidna) =
+        resolve_executable(&config.echidna_path, std::env::var_os("PATH").as_deref())
+    else {
         return AttemptResult::Skipped {
             reason: format!(
                 "echidna binary not found at {}",
                 config.echidna_path.display()
             ),
         };
-    }
+    };
 
-    let start = Instant::now();
-    let mut cmd = Command::new(&config.echidna_path);
+    let mut mode = detect_output_mode(&echidna);
+    loop {
+        let start = Instant::now();
+        let output =
+            output_tolerating_busy(&mut prove_command(&echidna, &probe_path, config, mode));
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+        let o = match output {
+            Ok(o) => o,
+            Err(e) => {
+                return AttemptResult::Skipped {
+                    reason: format!("subprocess failed: {e}"),
+                }
+            }
+        };
+        match mode {
+            OutputMode::Contract
+                if o.status.code() == Some(2)
+                    && rejected_output_flag(&String::from_utf8_lossy(&o.stderr)) =>
+            {
+                // `prove --help` advertised the flag but the binary refused
+                // it: treat this binary as pre-contract from now on.
+                remember_output_mode(&echidna, OutputMode::Legacy);
+                mode = OutputMode::Legacy;
+            }
+            OutputMode::Contract => return interpret_contract(&o, elapsed_ms),
+            OutputMode::Legacy => return interpret_legacy(&o, elapsed_ms),
+        }
+    }
+}
+
+/// Resolve the configured echidna to an existing file.
+///
+/// A value with more than one path component is used as given; a bare
+/// name (the default `echidna`) is searched for in `path_var`, the
+/// colon-separated `PATH`. Returns `None` when nothing exists.
+pub fn resolve_executable(configured: &Path, path_var: Option<&OsStr>) -> Option<PathBuf> {
+    if configured.components().count() != 1 || configured.is_absolute() {
+        return configured.exists().then(|| configured.to_path_buf());
+    }
+    std::env::split_paths(path_var?)
+        .map(|dir| dir.join(configured))
+        .find(|candidate| candidate.is_file())
+}
+
+/// Build the `echidna prove` invocation for one probe file.
+fn prove_command(echidna: &Path, probe: &Path, config: &ProverConfig, mode: OutputMode) -> Command {
+    let mut cmd = Command::new(echidna);
     cmd.arg("prove")
-        .arg(&probe_path)
+        .arg(probe)
         .arg("--prover")
         .arg("Isabelle")
         .arg("-t")
@@ -300,76 +402,126 @@ pub fn run_probe(probe_text: &str, config: &ProverConfig, probe_filename: &str) 
     if config.sandbox != "none" && !config.sandbox.is_empty() {
         cmd.arg("--sandbox").arg(&config.sandbox);
     }
-    let output = cmd.output();
-    let elapsed = start.elapsed();
-    let elapsed_ms = elapsed.as_millis() as u64;
+    if mode == OutputMode::Contract {
+        cmd.arg("--output").arg("json");
+    }
+    cmd
+}
 
-    match output {
-        Ok(o) => {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            let stderr = String::from_utf8_lossy(&o.stderr);
-
-            // Discovered 2026-04-26 during the swarm-dogfood session:
-            // echidna's "Proof verified successfully" / "Proof verification
-            // failed" lines come from `OutputFormatter`, which writes to
-            // STDERR, not stdout. The previous stdout-only check made every
-            // attempt look "inconclusive" and demoted real failures to
-            // generic-failure anti-patterns. We now scan BOTH streams and
-            // also fall back on the exit code so a non-zero exit with no
-            // standard marker still becomes Failed (not Inconclusive).
-            let combined_lines: Vec<&str> = stdout.lines().chain(stderr.lines()).collect();
-            let says_success = combined_lines.iter().any(|l| {
-                l.contains("Proof verified successfully") || l.contains("✓ Proof verified")
-            });
-            let says_failure = combined_lines.iter().any(|l| {
-                l.contains("Proof verification failed")
-                    || l.contains("✗ Proof verification failed")
-                    || l.contains("FAILED")
-            });
-            let exit_failed = !o.status.success();
-
-            if says_success && !says_failure && !exit_failed {
-                AttemptResult::Succeeded {
-                    duration_ms: elapsed_ms,
-                }
-            } else if says_failure || exit_failed {
-                let err_excerpt: String = combined_lines
-                    .iter()
-                    .filter(|l| {
-                        l.contains("***")
-                            || l.contains("Failed")
-                            || l.contains("error")
-                            || l.contains("Unable")
-                    })
-                    .take(3)
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                AttemptResult::Failed {
-                    error: if err_excerpt.is_empty() {
-                        format!(
-                            "exit {} — no standard diagnostic captured",
-                            o.status.code().unwrap_or(-1)
-                        )
-                    } else {
-                        err_excerpt
-                    },
-                    duration_ms: elapsed_ms,
-                }
-            } else {
-                // Truly inconclusive — exit 0, no markers either way.
-                AttemptResult::Failed {
-                    error: format!(
-                        "inconclusive output (no success/failure marker, exit 0): {}",
-                        stdout.chars().take(200).collect::<String>()
-                    ),
-                    duration_ms: elapsed_ms,
-                }
+/// Map an `echidna.prove.result/1` run onto an [`AttemptResult`].
+///
+/// The contract object is authoritative. A malformed object is a
+/// contract violation and fails the attempt; it is never re-read as text.
+/// A `verified` status with a non-zero exit is also treated as a
+/// violation, matching the legacy rule that failure evidence wins.
+fn interpret_contract(o: &Output, elapsed_ms: u64) -> AttemptResult {
+    let stdout = String::from_utf8_lossy(&o.stdout);
+    let result = match parse_prove_result(&stdout) {
+        Ok(r) => r,
+        Err(e) => {
+            return AttemptResult::Failed {
+                error: format!(
+                    "{SCHEMA} contract violation (exit {}): {e}",
+                    o.status.code().unwrap_or(-1)
+                ),
+                duration_ms: elapsed_ms,
             }
         }
-        Err(e) => AttemptResult::Skipped {
-            reason: format!("subprocess failed: {e}"),
+    };
+    let message = if result.message.is_empty() {
+        format!("echidna reported {:?} with no message", result.status)
+    } else {
+        result.message.clone()
+    };
+    match result.status {
+        ProveStatus::Verified if o.status.success() => AttemptResult::Succeeded {
+            duration_ms: elapsed_ms,
+            receipt: Some(ProofReceipt::from_result(&result)),
         },
+        ProveStatus::Verified => AttemptResult::Failed {
+            error: format!(
+                "{SCHEMA} contract violation: status verified but exit {}",
+                o.status.code().unwrap_or(-1)
+            ),
+            duration_ms: elapsed_ms,
+        },
+        ProveStatus::Failed => AttemptResult::Failed {
+            error: message,
+            duration_ms: elapsed_ms,
+        },
+        ProveStatus::Unknown => AttemptResult::Failed {
+            error: format!("inconclusive (status unknown): {message}"),
+            duration_ms: elapsed_ms,
+        },
+        ProveStatus::Timeout => AttemptResult::Timeout,
+        ProveStatus::Error => AttemptResult::Skipped {
+            reason: format!("echidna error: {message}"),
+        },
+    }
+}
+
+/// Map a pre-contract echidna run onto an [`AttemptResult`] from text markers.
+fn interpret_legacy(o: &Output, elapsed_ms: u64) -> AttemptResult {
+    let stdout = String::from_utf8_lossy(&o.stdout);
+    let stderr = String::from_utf8_lossy(&o.stderr);
+
+    // Discovered 2026-04-26 during the swarm-dogfood session:
+    // echidna's "Proof verified successfully" / "Proof verification
+    // failed" lines come from `OutputFormatter`, which writes to
+    // STDERR, not stdout. The previous stdout-only check made every
+    // attempt look "inconclusive" and demoted real failures to
+    // generic-failure anti-patterns. We now scan BOTH streams and
+    // also fall back on the exit code so a non-zero exit with no
+    // standard marker still becomes Failed (not Inconclusive).
+    let combined_lines: Vec<&str> = stdout.lines().chain(stderr.lines()).collect();
+    let says_success = combined_lines
+        .iter()
+        .any(|l| l.contains("Proof verified successfully") || l.contains("✓ Proof verified"));
+    let says_failure = combined_lines.iter().any(|l| {
+        l.contains("Proof verification failed")
+            || l.contains("✗ Proof verification failed")
+            || l.contains("FAILED")
+    });
+    let exit_failed = !o.status.success();
+
+    if says_success && !says_failure && !exit_failed {
+        AttemptResult::Succeeded {
+            duration_ms: elapsed_ms,
+            receipt: None,
+        }
+    } else if says_failure || exit_failed {
+        let err_excerpt: String = combined_lines
+            .iter()
+            .filter(|l| {
+                l.contains("***")
+                    || l.contains("Failed")
+                    || l.contains("error")
+                    || l.contains("Unable")
+            })
+            .take(3)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        AttemptResult::Failed {
+            error: if err_excerpt.is_empty() {
+                format!(
+                    "exit {} — no standard diagnostic captured",
+                    o.status.code().unwrap_or(-1)
+                )
+            } else {
+                err_excerpt
+            },
+            duration_ms: elapsed_ms,
+        }
+    } else {
+        // Truly inconclusive — exit 0, no markers either way.
+        AttemptResult::Failed {
+            error: format!(
+                "inconclusive output (no success/failure marker, exit 0): {}",
+                stdout.chars().take(200).collect::<String>()
+            ),
+            duration_ms: elapsed_ms,
+        }
     }
 }
 
@@ -384,6 +536,7 @@ pub fn run_playbook(
 ) -> Result<Vec<ProofAttempt>> {
     let mut attempts = Vec::new();
     let goal_h = goal_hash(&goal.raw);
+    let goal_id = crate::ids::goal_content_id(&goal.raw);
 
     for (i, tactic) in playbook.tactics.iter().enumerate() {
         let probe = generate_probe(&goal.raw, tactic);
@@ -408,6 +561,7 @@ pub fn run_playbook(
                 id: new_id(),
                 timestamp: now_iso(),
                 goal_hash: goal_h.clone(),
+                goal_id: Some(goal_id.clone()),
                 goal_excerpt: goal.raw.chars().take(200).collect(),
                 specialist: playbook.specialist.clone(),
                 approach: Some(Approach {
@@ -421,7 +575,7 @@ pub fn run_playbook(
                     artifacts: vec![],
                 }),
                 learning,
-                extra: serde_json::Value::Null,
+                extra: receipt_extra(&result),
             };
             if let Err(e) = l.append(&record) {
                 eprintln!("warning: ledger append failed: {e}");
@@ -431,16 +585,49 @@ pub fn run_playbook(
     Ok(attempts)
 }
 
+/// Ledger `extra` payload: the transported receipt, if any.
+fn receipt_extra(r: &AttemptResult) -> serde_json::Value {
+    match r {
+        AttemptResult::Succeeded {
+            receipt: Some(receipt),
+            ..
+        } => serde_json::json!({ "receipt": receipt }),
+        _ => serde_json::Value::Null,
+    }
+}
+
+/// Keep only characters that are safe in a probe file name.
 fn sanitize_filename(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric() || *c == '_')
         .collect()
 }
 
+/// One-line ledger explanation of an attempt outcome.
+///
+/// Says whether a success is backed by an echidna receipt or only by
+/// legacy text markers, so a reader can tell proof from hearsay.
 fn explain(r: &AttemptResult) -> String {
     match r {
-        AttemptResult::Succeeded { duration_ms } => {
-            format!("verified in {} ms", duration_ms)
+        AttemptResult::Succeeded {
+            duration_ms,
+            receipt: Some(rc),
+        } => format!(
+            "verified in {} ms (receipt: {} from echidna {}, prover {}, axioms [{}])",
+            duration_ms,
+            rc.schema,
+            rc.echidna_version,
+            rc.prover,
+            rc.axioms.join(", ")
+        ),
+        AttemptResult::Succeeded {
+            duration_ms,
+            receipt: None,
+        } => {
+            format!(
+                "verified in {} ms (legacy text markers: a warrant, not a receipt)",
+                duration_ms
+            )
         }
         AttemptResult::Failed { error, duration_ms } => {
             format!("failed in {} ms: {}", duration_ms, error)
@@ -450,6 +637,7 @@ fn explain(r: &AttemptResult) -> String {
     }
 }
 
+/// Turn an attempt outcome into a ledger learning, if one is extractable.
 fn derive_learning(
     specialist: &str,
     tactic: &TacticTemplate,
@@ -496,6 +684,7 @@ fn derive_learning(
     }
 }
 
+/// Suggest the next tactic to try after `t` failed.
 fn suggest_next(t: &TacticTemplate) -> String {
     match t.name.as_str() {
         "simp" => "auto, blast, or fastforce",
@@ -571,6 +760,7 @@ mod tests {
         );
     }
 
+    /// Legacy path: a non-zero exit or failure text beats a success marker.
     #[cfg(unix)]
     #[test]
     fn subprocess_failure_overrides_success_text() {
@@ -606,8 +796,224 @@ mod tests {
                 run_probe("fixture", &config, "fixture.thy").is_success(),
                 expected
             );
+            // Each body is a new binary at the same path: forget the
+            // cached output mode so detection runs again.
+            crate::echidna_contract::remember_output_mode(&executable, OutputMode::Legacy);
         }
         std::fs::remove_dir_all(workdir).unwrap();
+    }
+
+    /// Write an executable fake echidna into `dir` and return its path.
+    #[cfg(unix)]
+    fn fake_echidna(dir: &std::path::Path, name: &str, body: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let path = dir.join(name);
+        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        path
+    }
+
+    /// A probe-runner config pointing at `echidna`.
+    fn config_for(echidna: PathBuf) -> ProverConfig {
+        ProverConfig {
+            echidna_path: echidna,
+            timeout_secs: 5,
+            ..ProverConfig::default()
+        }
+    }
+
+    const RESULT: &str = r#"{"duration_ms":7,"echidna_version":"2.4.0","goal":"p.thy","message":"MSG","prover":"Isabelle","schema":"echidna.prove.result/1","status":"STATUS","trust":{"axioms":["sorry"],"confidence":0.5}}"#;
+
+    /// A contract-speaking fake: advertises `--output`, prints `json`, exits `exit`.
+    #[cfg(unix)]
+    fn contract_echidna(dir: &std::path::Path, name: &str, json: &str, exit: i32) -> PathBuf {
+        fake_echidna(
+            dir,
+            name,
+            &format!(
+                "case \"$*\" in\n  *--help*) echo '      --output <OUTPUT>  Output format'; exit 0 ;;\n  *'--output json'*) printf '%s\\n' '{json}'; exit {exit} ;;\n  *) echo 'Proof verified successfully' >&2; exit 0 ;;\nesac"
+            ),
+        )
+    }
+
+    /// Contract path: every status maps to the right outcome; success carries the receipt.
+    #[cfg(unix)]
+    #[test]
+    fn contract_mode_maps_every_status_and_carries_the_receipt() {
+        let dir = tempfile::tempdir().unwrap();
+        let verified = RESULT.replace("STATUS", "verified").replace("MSG", "");
+        let path = contract_echidna(dir.path(), "verified.sh", &verified, 0);
+        match run_probe("p", &config_for(path), "p.thy") {
+            AttemptResult::Succeeded {
+                receipt: Some(rc), ..
+            } => {
+                assert_eq!(rc.prover, "Isabelle");
+                assert_eq!(rc.axioms, vec!["sorry".to_string()]);
+                assert_eq!(rc.confidence, Some(0.5));
+                assert_eq!(rc.echidna_version, "2.4.0");
+                assert_eq!(rc.schema, SCHEMA);
+            }
+            other => panic!("expected receipt-backed success, got {other:?}"),
+        }
+
+        let cases: [(&str, &str, i32, &str); 6] = [
+            ("failed", "Failed to apply", 1, "failed"),
+            ("failed", "", 1, "failed"),
+            ("unknown", "no answer", 0, "failed"),
+            ("timeout", "", 0, "timeout"),
+            ("error", "Isabelle missing", 1, "skipped"),
+            ("verified", "", 1, "failed"),
+        ];
+        for (i, (status, msg, exit, expected)) in cases.iter().enumerate() {
+            let json = RESULT.replace("STATUS", status).replace("MSG", msg);
+            let path = contract_echidna(dir.path(), &format!("c{i}.sh"), &json, *exit);
+            let r = run_probe("p", &config_for(path), "p.thy");
+            assert_eq!(r.status_string(), *expected, "{status}/{exit}: {r:?}");
+            if !msg.is_empty() && *expected != "timeout" {
+                assert!(format!("{r:?}").contains(msg), "{r:?}");
+            }
+        }
+    }
+
+    /// Contract path: malformed or non-canonical stdout fails, never falls back to text.
+    #[cfg(unix)]
+    #[test]
+    fn contract_mode_rejects_malformed_output_instead_of_string_matching() {
+        let dir = tempfile::tempdir().unwrap();
+        // Advertises the flag, then prints the legacy success text: a
+        // contract violation, never a success.
+        let path = contract_echidna(dir.path(), "liar.sh", "Proof verified successfully", 0);
+        match run_probe("p", &config_for(path), "p.thy") {
+            AttemptResult::Failed { error, .. } => {
+                assert!(error.contains("contract violation"), "{error}")
+            }
+            other => panic!("expected contract violation, got {other:?}"),
+        }
+        // Planted non-canonical mutant: right data, wrong key order.
+        let mutant = RESULT
+            .replace("STATUS", "verified")
+            .replace("MSG", "")
+            .replacen(
+                r#"{"duration_ms":7,"echidna_version":"2.4.0","#,
+                r#"{"echidna_version":"2.4.0","duration_ms":7,"#,
+                1,
+            );
+        let path = contract_echidna(dir.path(), "mutant.sh", &mutant, 0);
+        assert!(!run_probe("p", &config_for(path), "p.thy").is_success());
+    }
+
+    /// A pre-contract echidna is driven through the legacy text markers.
+    #[cfg(unix)]
+    #[test]
+    fn legacy_echidna_without_the_flag_uses_text_markers() {
+        let dir = tempfile::tempdir().unwrap();
+        // Pre-contract echidna: no `--output` in help, and it would reject it.
+        let path = fake_echidna(
+            dir.path(),
+            "legacy.sh",
+            "case \"$*\" in\n  *--help*) echo '      --project-root <P>'; exit 0 ;;\n  *--output*) echo \"error: unexpected argument '--output' found\" >&2; exit 2 ;;\n  *) echo 'Proof verified successfully' >&2; exit 0 ;;\nesac",
+        );
+        match run_probe("p", &config_for(path), "p.thy") {
+            AttemptResult::Succeeded { receipt: None, .. } => {}
+            other => panic!("expected legacy success without receipt, got {other:?}"),
+        }
+    }
+
+    /// A binary whose help lies about `--output` is demoted to legacy mode.
+    #[cfg(unix)]
+    #[test]
+    fn binary_that_advertises_but_rejects_the_flag_falls_back_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fake_echidna(
+            dir.path(),
+            "fibber.sh",
+            "case \"$*\" in\n  *--help*) echo '  --output <OUTPUT>'; exit 0 ;;\n  *--output*) echo \"error: unexpected argument '--output' found\" >&2; exit 2 ;;\n  *) echo 'Proof verified successfully' >&2; exit 0 ;;\nesac",
+        );
+        let cfg = config_for(path.clone());
+        assert!(run_probe("p", &cfg, "p.thy").is_success());
+        assert_eq!(
+            crate::echidna_contract::detect_output_mode(&path),
+            OutputMode::Legacy
+        );
+    }
+
+    /// Bare names resolve through PATH; explicit paths are used as given.
+    #[cfg(unix)]
+    #[test]
+    fn bare_name_is_resolved_on_path_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let found = fake_echidna(dir.path(), "echidna-fake", "exit 0");
+        let path_var =
+            std::env::join_paths([PathBuf::from("/nonexistent"), dir.path().to_path_buf()])
+                .unwrap();
+        assert_eq!(
+            resolve_executable(std::path::Path::new("echidna-fake"), Some(&path_var)),
+            Some(found.clone())
+        );
+        assert_eq!(
+            resolve_executable(std::path::Path::new("echidna-fake"), None),
+            None
+        );
+        assert_eq!(
+            resolve_executable(std::path::Path::new("absent-echidna"), Some(&path_var)),
+            None
+        );
+        assert_eq!(resolve_executable(&found, None), Some(found.clone()));
+        assert_eq!(
+            resolve_executable(&dir.path().join("absent"), Some(&path_var)),
+            None
+        );
+    }
+
+    /// Ledger text and `extra` tell receipt-backed successes from marker-only ones.
+    #[test]
+    fn ledger_explanations_distinguish_receipts_from_warrants() {
+        let receipt = ProofReceipt {
+            schema: SCHEMA.into(),
+            prover: "Isabelle".into(),
+            axioms: vec!["sorry".into()],
+            confidence: None,
+            echidna_version: "2.4.0".into(),
+            result_id: None,
+        };
+        let with = AttemptResult::Succeeded {
+            duration_ms: 3,
+            receipt: Some(receipt),
+        };
+        let without = AttemptResult::Succeeded {
+            duration_ms: 3,
+            receipt: None,
+        };
+        assert!(explain(&with).contains("receipt: echidna.prove.result/1"));
+        assert!(explain(&with).contains("axioms [sorry]"));
+        assert!(explain(&without).contains("warrant, not a receipt"));
+        assert_eq!(receipt_extra(&with)["receipt"]["prover"], "Isabelle");
+        assert!(receipt_extra(&without).is_null());
+        let json = serde_json::to_string(&without).unwrap();
+        assert!(!json.contains("receipt"), "{json}");
+    }
+
+    /// `run_playbook` stores the transported receipt in the ledger record.
+    #[cfg(unix)]
+    #[test]
+    fn playbook_ledger_records_the_receipt() {
+        let dir = tempfile::tempdir().unwrap();
+        let verified = RESULT.replace("STATUS", "verified").replace("MSG", "");
+        let path = contract_echidna(dir.path(), "pb.sh", &verified, 0);
+        let ledger = crate::ledger::Ledger::open(dir.path().join("l.jsonl")).unwrap();
+        let playbook = Playbook {
+            specialist: "Algebraist".into(),
+            tactics: vec![TacticTemplate {
+                name: "simp".into(),
+                script: "by simp".into(),
+                description: "simplifier".into(),
+            }],
+        };
+        let goal = parse_goal("lemma foo: \"True\" by simp");
+        let attempts = run_playbook(&goal, &playbook, &config_for(path), Some(&ledger)).unwrap();
+        assert!(attempts[0].result.is_success());
+        let records = ledger.read_all().unwrap();
+        assert_eq!(records[0].extra["receipt"]["schema"], SCHEMA);
     }
 
     #[test]

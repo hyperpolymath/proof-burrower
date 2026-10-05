@@ -1,57 +1,21 @@
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# The toolchain for proof-burrower. Specs are `latest`; mise.lock records the
+# concrete version and per-platform checksum of each, so every checkout
+# installs the same bits (PROVISIONING-STANDARD §4).
+#
+# Rust is not a mise tool here: rust-toolchain.toml pins it through rustup
+# (stable + wasm32-unknown-unknown for burrower-wasm).
+# Idris2 is not a mise tool: it comes from pack (src/interface/abi ABI).
+# Julia is only needed for the optional tropical-types pre-proof oracle.
+# Estate policy: no python, deno, node/npm/yarn, go, java or make here.
+
+[settings]
+lockfile = true
+
 [tools]
-# Language runtimes
-node = "latest"
-python = "latest"
-rust = "latest"
-go = "latest"
+just = "latest"
+shellcheck = "latest"
 zig = "latest"
-java = "latest"
-bun = "latest"
-denojs = "latest"
-
-# Package managers
-npm = "latest"
-yarn = "latest"
-pnpm = "latest"
-pip = "latest"
-cargo = "latest"
-go-task = "latest"
-
-# Formatting & Linting
-gofmt = "latest"
-black = "latest"
-isort = "latest"
-ruff = "latest"
-prettier = "latest"
-shfmt = "latest"
-stylua = "latest"
-
-# Build tools
-cmake = "latest"
-make = "latest"
-ninja = "latest"
-
-# Shell tools
-git = "latest"
-gnu-sed = "latest"
-gnu-tar = "latest"
-gnu-grep = "latest"
-
-# Testing
-vitest = "latest"
-pytest = "latest"
-jest = "latest"
-
-[env]
-# Common environment variables
-NODE_ENV = "development"
-PYTHONDONTWRITEBYTECODE = "1"
-PYTHONUNBUFFERED = "1"
-
-# Task runner alias
-[alias]
-task = "go-task"
-build = "cargo build --release || npm run build || go build"
-test = "cargo test || npm test || go test ./..."
-lint = "ruff check . || prettier --check . || black --check ."
-fmt = "ruff format . || prettier --write . || black ."
+julia = "latest"
