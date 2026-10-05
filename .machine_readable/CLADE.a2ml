@@ -13,7 +13,7 @@ prefixed-name = "rm-proof-burrower"
 primary = "rm"
 secondary = ["gv"]
 assigned = "2026-03-16"
-rationale = ""
+rationale = "Inherited unchanged from the template copy (rm, gv). Proof Burrower is a proof-search companion to ECHIDNA (clade fv); the assignment needs a gv-clade-index review before it is changed here."
 
 [forges]
 github = "hyperpolymath/proof-burrower"
@@ -22,7 +22,7 @@ bitbucket = "hyperpolymath/proof-burrower"
 
 [lineage]
 type = "standalone"
-parent = "RSR template — scaffold for new repos"
+parent = ""
 born = "2026-03-16"
 
 # Lifecycle status (added by clade-status-backfill; see gv-clade-index ADR 0006).

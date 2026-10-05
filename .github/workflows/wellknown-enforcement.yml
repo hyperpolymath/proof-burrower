@@ -1,36 +1,50 @@
 # This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
-# This workflow is managed by gh actions-lock.
 name: Well-Known Standards (RFC 9116 + RSR)
 on:
   push:
     branches: [main, master]
     paths:
-      - '.well-known/**'
+      - 'www/.well-known/**'
+      - 'www/tests/**'
+      - 'www/schemas/**'
+      - '.well-known/**'   # legacy location — migration window (issue #53)
       - 'security.txt'
   pull_request:
     paths:
-      - '.well-known/**'
+      - 'www/.well-known/**'
+      - 'www/tests/**'
+      - 'www/schemas/**'
+      - '.well-known/**'   # legacy location — migration window (issue #53)
   schedule:
-    # Weekly expiry check
-    - cron: '0 9 * * *'
+    # Weekly expiry check (Mondays 09:00 UTC)
+    - cron: '0 9 * * 1'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
-  actions: read
   contents: read
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.1
       - name: RFC 9116 security.txt validation
         run: |
           SECTXT=""
-          [ -f ".well-known/security.txt" ] && SECTXT=".well-known/security.txt"
-          [ -f "security.txt" ] && SECTXT="security.txt"
+          if [ -f "www/.well-known/security.txt" ]; then
+            SECTXT="www/.well-known/security.txt"
+          elif [ -f ".well-known/security.txt" ]; then
+            SECTXT=".well-known/security.txt"
+            echo "::warning::security.txt at legacy root .well-known/ — canonical location is www/.well-known/ (run scripts/migrate-wellknown-to-www.sh)"
+          elif [ -f "security.txt" ]; then
+            SECTXT="security.txt"
+            echo "::warning::security.txt at repository root — canonical location is www/.well-known/ (run scripts/migrate-wellknown-to-www.sh)"
+          fi
 
           if [ -z "$SECTXT" ]; then
             echo "::error::No security.txt found — required for OpenSSF Best Practices. See https://github.com/hyperpolymath/well-known-ecosystem"
@@ -62,15 +76,64 @@ jobs:
       - name: RSR well-known compliance
         run: |
           MISSING=""
-          [ ! -f ".well-known/security.txt" ] && [ ! -f "security.txt" ] && MISSING="$MISSING security.txt"
-          [ ! -f ".well-known/ai.txt" ] && MISSING="$MISSING ai.txt"
-          [ ! -f ".well-known/humans.txt" ] && MISSING="$MISSING humans.txt"
+          LEGACY=""
+          for f in security.txt ai.txt humans.txt; do
+            if [ -f "www/.well-known/$f" ]; then
+              :
+            elif [ -f ".well-known/$f" ] || { [ "$f" = security.txt ] && [ -f security.txt ]; }; then
+              LEGACY="$LEGACY $f"
+            else
+              MISSING="$MISSING $f"
+            fi
+          done
+          if [ -n "$LEGACY" ]; then
+            echo "::warning::legacy .well-known location (canonical is www/.well-known/):$LEGACY — run scripts/migrate-wellknown-to-www.sh"
+          fi
 
           if [ -n "$MISSING" ]; then
             echo "::warning::Missing RSR recommended files:$MISSING"
             echo "Reference: https://github.com/hyperpolymath/well-known-ecosystem/.well-known/"
           else
             echo "✅ RSR well-known compliant"
+          fi
+      # Stage 5 (#119) sweeps ~270 repositories. #106 claimed CI "drives the
+      # migrator"; until now it only printed advice, so nothing verified that a
+      # repo would actually survive the migration. This step runs the real
+      # migrator and turns every conflict into an annotation.
+      #
+      # --dry-run because this job holds contents: read and cannot push: the
+      # point is to surface divergence early in the migration window, not to
+      # mutate a checkout that will be thrown away. The sweep driver
+      # (scripts/sweep-wellknown.sh) is what performs the real migration.
+      - name: Legacy root .well-known/ migration report
+        run: |
+          if [ ! -d .well-known ]; then
+            echo "No root .well-known/ — nothing to migrate."
+            exit 0
+          fi
+          if [ ! -f scripts/migrate-wellknown-to-www.sh ]; then
+            echo "::warning::root .well-known/ present but no migrator — template is behind #53 stage 5."
+            exit 0
+          fi
+          bash scripts/migrate-wellknown-to-www.sh --dry-run --report wellknown-migration.tsv
+          echo "--- planned migration ---"
+          cat wellknown-migration.tsv
+          # Conflicts are warnings, not errors, for the duration of the
+          # migration window (#106): a repo must not go red for a condition
+          # the sweep exists to fix. It must not be silent either.
+          while IFS=$'\t' read -r action path detail; do
+            case "$action" in
+              quarantined|conflict|left)
+                echo "::warning title=well-known migration::$action $path — $detail"
+                ;;
+            esac
+          done < <(tail -n +2 wellknown-migration.tsv)
+      - name: www bundle self-test
+        run: |
+          if [ -d www/tests ]; then
+            bash www/tests/run-all.sh
+          else
+            echo "www/tests absent — site-operations bundle not present; skipping."
           fi
       - name: Mixed content check
         run: |

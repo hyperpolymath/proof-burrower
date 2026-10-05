@@ -35,7 +35,7 @@
     "mathcomp/finset"
   ],
   local: [
-    "verification-ecosystem/tropical-resource-typing"
+    "tropical-types"
   ]
 }
 

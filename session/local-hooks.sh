@@ -13,7 +13,7 @@ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) hook: $verb $object $repo_path" >> "$log_fi
 
 case "$verb $object" in
   "verify release")
-    echo "release hook: ensure AUDIT.adoc and session reports are reviewed" >> "$log_file"
+    echo "release hook: ensure docs/AUDIT.adoc and session reports are reviewed" >> "$log_file"
     ;;
   "close urgent")
     echo "urgent hook: prioritize EMERGENCY-CHECKPOINT.md generation" >> "$log_file"

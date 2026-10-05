@@ -1,8 +1,8 @@
-# ⚓ ANCHOR: rsr-template-repo
-# Canonical authority and project recalibration trigger for rsr-template-repo.
+# ⚓ ANCHOR: proof-burrower
+# Canonical authority and project recalibration trigger for proof-burrower.
 # Template from: https://github.com/hyperpolymath/standards
 
-id: "org.hyperpolymath.rsr-template-repo"
+id: "org.hyperpolymath.proof-burrower"
 version: "1.0.0"
 clade: "infrastructure"
 status: "active"

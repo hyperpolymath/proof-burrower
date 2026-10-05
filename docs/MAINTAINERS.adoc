@@ -61,5 +61,5 @@ For questions about project governance:
 == See Also
 
 * link:GOVERNANCE.adoc[Governance Model]
-* link:CODE_OF_CONDUCT.md[Code of Conduct]
-* link:CONTRIBUTING.adoc[Contributing Guide]
+* link:../.github/CODE_OF_CONDUCT.md[Code of Conduct]
+* link:../CONTRIBUTING.adoc[Contributing Guide]

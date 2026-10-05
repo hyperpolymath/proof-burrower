@@ -1,189 +1,101 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 // SPDX-FileCopyrightText: 2024-2026 Jonathan D.A. Jewell (hyperpolymath)
-= PseudoScript
+= Proof Burrower
 :toc:
 :toc-placement: preamble
 
-image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/proof-burrower"]
 image:https://img.shields.io/badge/License-MPL_2.0-blue.svg[License: MPL-2.0,link="https://opensource.org/licenses/MPL-2.0"]
-image:https://api.thegreenwebfoundation.org/greencheckimage/github.com[Green Web,link="https://www.thegreenwebfoundation.org/green-web-check/?url=github.com"]
+image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/proof-burrower"]
 
-Pseudocode-syntax AffineScript.
-Write code that looks like pseudocode.
-Get affine resource guarantees and typed WASM out.
+Find the mathematical home of a proof goal.
 
-**Status: alpha** — the syntax, type checker, and WASM output are solid.
-Effects runtime is in progress upstream.
+Given a lemma you are stuck on, Proof Burrower searches theorem-prover
+libraries for the place where that goal already lives (or nearly lives),
+routes it through a small swarm of specialist "readers", and optionally
+*attempts* proofs through https://github.com/hyperpolymath/echidna[ECHIDNA],
+recording every attempt in an append-only ledger so the next run starts
+from what the last one learned.
 
----
+ECHIDNA is the prover. Burrower is the librarian and the lab notebook.
 
-== What it is
+**Status: pre-alpha (v0.0.1).** The Rust engine, CLI, ledger, socket
+service and WASM shim are implemented and tested; the CLI surface may
+still change. See `docs/status/ROADMAP.adoc`.
 
-PseudoScript is https://github.com/hyperpolymath/affinescript[AffineScript]
-with its pseudocode face pre-selected.  If you write pseudocode, you already know
-most of the syntax.
+== What it does
 
-The compiler checks that your resources (files, sockets, tokens) are used
-*exactly as many times as you say* — and proves it at compile time.
-No null pointer exceptions.  No use-after-free.  No silent data races.
-
-[source,pseudocode]
-----
-FUNCTION greet(name: STRING) RETURNS STRING
-    RETURN "Hello, " + name + "!"
-END FUNCTION
-
-FUNCTION main() RETURNS VOID
-    LET msg = greet("world")
-    PRINT(msg)
-END FUNCTION
-----
-
-Save as `hello.pseudo` and run:
-
-[source,bash]
-----
-pseudo eval hello.pseudo
-----
-
-== Why Pseudocode syntax?
-
-Because pseudocode programmers deserve a sound type system.
-
-PseudoScript is pseudocode's more dangerous cousin — same comfortable
-whitespace-delimited blocks, but with teeth: the compiler tracks *ownership*
-of every value so you cannot accidentally drop, duplicate, or outlive a
-resource.  You never null-check.  You never wonder if a function consumes its
-argument or borrows it.  The type says so.
-
-The mascot is a pseudocode.
-
-== Surface mappings
-
-[cols="1,1"]
+[cols="1,3"]
 |===
-|Pseudocode surface |What it means in PseudoScript
+|Command |What it does
 
-|`FUNCTION f(x: T) RETURNS R:` |function declaration
-|`TRUE` / `FALSE`    |`true` / `false`
-|`NULL`              |unit `()` — not null, genuinely nothing
-|`AND` / `OR` / `NOT` |`&&` / `||` / `!`
-|`CLASS Name:`       |`type Name` (algebraic data type)
-|`PASS`              |`()` (unit expression)
-|`IMPORT a.b`        |`use a::b;`
-|`FROM a IMPORT b`   |`use a::b;`
-|`IF cond:` / `ELSE:` |`if cond { ... } else { ... }`
-|`ELIF cond:`        |`} else if cond {`
-|`FOR x IN e:`       |`for x in e { ... }`
-|`MATCH e:`          |`match e { ... }`
-|`# comment`         |`// comment`
+|`burrower index <root> --output idx.json`
+|Walk a library tree (`.thy`, `.v`, `.lean`), extract lemma signatures,
+build an inverted index.
+
+|`burrower find "<goal>" --index idx.json`
+|Rank candidate homes for one goal (Jaccard over signature tokens).
+
+|`burrower swarm "<goal>" --index idx.json [--ledger l.jsonl]`
+|Route the goal through the specialists (Algebraist, Combinatorialist,
+Order-Theorist): each scores relevance, reads the goal in its own
+vocabulary, and returns homes; synthesis reports consensus homes and
+boundary objects.
+
+|`burrower attempt "<goal>" --ledger l.jsonl [--echidna echidna]`
+|Run every engaged specialist's tactic playbook through
+`echidna prove --prover Isabelle`, and record each outcome in the ledger.
+
+|`burrower ledger recent\|by-specialist\|anti-patterns\|digest`
+|Read the ledger back.
+
+|`burrower serve --socket /tmp/burrower.sock`
+|Expose `swarm` / `attempt` / `ledger` over a Unix socket
+(line-delimited JSON) for ECHIDNA and echidnabot.
 |===
 
-Run `pseudo preview-pseudocode-transform <file>` to see the canonical
-AffineScript that the preprocessor generates from any `.pseudo` file.
+== Talking to ECHIDNA
 
-== Getting started
+`burrower attempt` invokes `echidna prove`. When the installed echidna
+supports `--output json`, Burrower reads the `echidna.prove.result/1`
+object it prints (one JCS-canonical I-JSON line) and records a
+*receipt*: the prover, the axioms the proof rests on, and echidna's
+version. With an older echidna that lacks the flag, Burrower falls back
+to the legacy text markers and records the success as a *warrant* (no
+receipt). The contract, detection rule and failure mapping are in
+`docs/ECHIDNA-INTEGRATION.adoc`.
 
-=== Prerequisites
-
-* https://ocaml.org/[OCaml] + https://dune.build/[dune] (for the compiler)
-* https://www.rust-lang.org/[Rust] + cargo (for the `pseudo` wrapper)
-* https://just.systems/[just] (task runner)
-
-=== Install from source
-
-[source,bash]
-----
-git clone --recurse-submodules https://github.com/hyperpolymath/pseudoscript
-cd pseudoscript
-
-# Build affinescript compiler + pseudo wrapper in one step
-just bootstrap
-
-# Optional: install pseudo to ~/.cargo/bin
-just install
-----
-
-=== Usage
+== Quick start
 
 [source,bash]
 ----
-pseudo check   hello.pseudo      # type-check
-pseudo eval    hello.pseudo      # run
-pseudo compile hello.pseudo      # compile to WASM
-pseudo fmt     hello.pseudo      # format
-pseudo lint    hello.pseudo      # static analysis
-
-# See what the pseudocode preprocessor produces
-pseudo preview-pseudocode-transform hello.pseudo
+cargo build --release
+./target/release/burrower index /path/to/HOL/Library --output idx.json
+./target/release/burrower swarm 'lemma foo: "a + b = b + (a::nat)"' --index idx.json
+# needs echidna (and Isabelle) on PATH:
+./target/release/burrower attempt 'lemma foo: "a + b = b + (a::nat)"' --ledger burrow.jsonl
 ----
 
-`.pseudo` files are detected automatically — no `--face` flag needed.
-You can also use `.pyaff` if you prefer the AffineScript naming.
+More: `docs/QUICKSTART.adoc`.
 
-== Ownership in one minute
+== Layout
 
-[source,pseudocode]
-----
-# @linear means: use this exactly once.
-FUNCTION send_token(@linear token: AuthToken) RETURNS Receipt:
-    network.submit(token)   # consumes token — compiler verifies this
-END FUNCTION
+[cols="1,3"]
+|===
+|Path |Contents
 
-# Option instead of None crashes.
-FUNCTION safe_divide(a: Int, b: Int) RETURNS Option[Int]:
-    IF b == 0:
-        NONE
-    ELSE:
-        SOME(a / b)
-    END IF
-END FUNCTION
+|`crates/burrower-core` |Engine: goal parsing, corpus index, ranking,
+specialists, attempts, the echidna contract, ledger, socket service,
+oracle bridge.
+|`crates/burrower-cli` |The `burrower` binary.
+|`crates/burrower-wasm` |C-ABI WASM shim for ECHIDNA's typed-wasm oracle.
+|`agents/*.007` |Specialist definitions in the 007 agent DSL.
+|`src/interface/` |Idris2 ABI + Zig FFI layer (template scaffold; see
+`docs/status/PROOF-STATUS.adoc` for what is and is not proved).
+|`docs/` |Architecture, integration, design notes, status.
+|`tests/e2e.sh` |Live end-to-end check against real Isabelle via echidna.
+|===
 
-FUNCTION show(result: Option[Int]) RETURNS VOID:
-    MATCH result:
-        SOME(n) => IO.println(Int.to_string(n))
-        NONE    => IO.println("no result")
-    END MATCH
-END FUNCTION
-----
+== Licence
 
-The compiler rejects any program that drops a `@linear` value unused,
-uses it more than once, or tries to treat `NONE` as a value.
-
-== Relationship to AffineScript
-
-PseudoScript *is* AffineScript.  Same compiler, same type system, same WASM
-output.  The difference is `--face pseudocode` is the default and the entry
-point is `pseudo` instead of `affinescript`.
-
-The affinescript compiler lives in the `affinescript/` submodule of this
-repo.  `just update-affinescript` bumps the pointer to the latest upstream
-release — all language improvements flow through automatically.
-
-Face logic: `affinescript/lib/pseudocode_face.ml` (syntax transform) and
-`affinescript/lib/face.ml` (error vocabulary).  No compiler internals change
-when the face changes.
-
-== Alpha caveats
-
-* **Effects runtime**: `effect`/`handle` syntax is type-checked but not yet
-executed at runtime.  The effects story is coming in a near-upstream release.
-* **Closures and linear captures**: lambda-body linear capture tracking is
-conservative in the current release.
-* **Span fidelity**: error locations refer to the transformed canonical source,
-not the original `.pseudo` line numbers.  Source-map remapping is planned.
-
-== Contributing
-
-This repo is a thin distribution layer.  Language bugs and features go
-upstream: https://github.com/hyperpolymath/affinescript[hyperpolymath/affinescript].
-
-PseudoScript-specific contributions (branding, examples, tutorials, the
-`pseudo` CLI wrapper) are welcome here.
-
-== License
-
-This project is licensed under the Mozilla Public License, v. 2.0. See the `LICENSE` file for details.
-
-SPDX-License-Identifier: CC-BY-SA-4.0
+Code: MPL-2.0. Documentation: CC-BY-SA-4.0. See `LICENSE` and `LICENSES/`.

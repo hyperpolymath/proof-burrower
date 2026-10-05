@@ -59,7 +59,7 @@ workflows:
         - 'actions/upload-artifact@v4.6.2'
         - 'erlef/setup-beam@v1.20.4'
     '.github/workflows/wellknown-enforcement.yml':
-        - 'actions/checkout@v6.0.2'
+        - 'actions/checkout@v7.0.1'
     '.github/workflows/workflow-linter.yml':
         - 'actions/checkout@v6.0.2'
 dependencies:

@@ -55,7 +55,7 @@
   ],
   -- Always-included local corpora.
   local: [
-    "verification-ecosystem/tropical-resource-typing"
+    "tropical-types"
   ]
 }
 

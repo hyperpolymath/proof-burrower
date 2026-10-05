@@ -1,47 +1,51 @@
 # SPDX-License-Identifier: MPL-2.0
-# META.a2ml - Project metadata and architectural decisions for rsr-template-repo
+# META.a2ml - Project metadata and architectural decisions for proof-burrower
 # Template from: https://github.com/hyperpolymath/standards
+# NOTE: rsr-template-repo#209 retires this file into the repo deed
+# (proof-burrower_chora.deed). That migration is a separate increment because
+# the required `openssf-compliance` workflow still reads descriptiles/.
 
 # ── Project Identity ───────────────────────────────────────────────────────
 [project-meta]
-version = "1.0.0"
-name = "rsr-template-repo"
+version = "0.0.1"
+name = "proof-burrower"
+purpose = "Find the mathematical home of a proof goal; route it through specialist readers; attempt proofs through ECHIDNA; keep a ledger of what was learned."
 
 # ── Architecture Decisions ─────────────────────────────────────────────────
 [project-meta.architecture-decisions]
 
 [project-meta.architecture-decisions.adr-001]
 status = "accepted"
-date = "2026-02-08"
-context = "Need a unified metadata standard for all repositories."
-decision = "Adopt the 6A2 format family (META, STATE, ECOSYSTEM, PLAYBOOK, AGENTIC, NEUROSYM, ANCHOR) in .machine_readable/ directory."
-consequences = "Atomic cross-spec changes and machine-readable project status across the ecosystem."
+date = "2026-04-26"
+context = "Burrower needs a prover but must not become one."
+decision = "Invoke ECHIDNA as a subprocess (`echidna prove`) rather than linking it; Burrower stays prover-agnostic."
+consequences = "One process boundary to keep stable; see docs/ECHIDNA-INTEGRATION.adoc."
 
 [project-meta.architecture-decisions.adr-002]
 status = "accepted"
-date = "2026-04-05"
-context = "STATE.a2ml v1 was too verbose and drifted from reality."
-decision = "Migrate to STATE.a2ml v2 (Thin Session Journal) focusing only on phase, last_action, next_action, and blockers."
-consequences = "Reduced maintenance overhead and higher data fidelity."
+date = "2026-10-05"
+context = "Success was inferred from ECHIDNA's human-readable text (string matching)."
+decision = "Consume the echidna.prove.result/1 JCS/I-JSON contract when the installed ECHIDNA offers `--output json`; fall back to text markers only when the flag is absent."
+consequences = "Successes carry a receipt (prover, axioms, version); legacy successes are recorded as warrants."
+
+[project-meta.architecture-decisions.adr-003]
+status = "accepted"
+date = "2026-10-05"
+context = "The repository was scaffolded by copying another checkout and carried a vendored affinescript/ tree and a PseudoScript README."
+decision = "Remove affinescript/ (no workspace member, build, test or CI step referenced it) and restore proof-burrower's own identity docs."
+consequences = "Smaller tree; AffineScript remains available upstream at hyperpolymath/affinescript."
 
 # ── Development Practices ──────────────────────────────────────────────────
 [project-meta.development-practices]
-code-style = "rsr"
+code-style = "rustfmt + clippy -D warnings"
 security = "openssf-scorecard"
-testing = "comprehensive"
+testing = "cargo test --workspace; llvm-cov line floor 95%; live Isabelle e2e via ECHIDNA"
 versioning = "semver"
 documentation = "asciidoc"
 branching = "trunk-based"
 
-# ── Design Rationale ──────────────────────────────────────────────────────
-[project-meta.design-rationale]
-# The RSR template repo exists to enforce organizational standards by default.
-# It prioritizes machine-readability, formal verification (Idris2), and 
-# memory safety (Zig/Rust) while ensuring a consistent developer experience
-# via the Just task runner.
-
 # ── Provenance ─────────────────────────────────────────────────────────────
 [provenance]
-last-modified-by = "gemini"
-last-modified-at = "2026-04-23T12:00:00Z"
-modification-summary = "Updated to 1.0.0 template standards and recorded ADRs"
+last-modified-by = "claude"
+last-modified-at = "2026-10-05T00:00:00Z"
+modification-summary = "Replaced inherited rsr-template-repo identity with proof-burrower's own"

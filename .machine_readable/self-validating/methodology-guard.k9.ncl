@@ -50,7 +50,7 @@ let methodology_guard = {
       description = "STATE.a2ml must not contain template placeholders",
       severity = "warning",
       file = ".machine_readable/descriptiles/STATE.a2ml",
-      reject_patterns = ["{{PLACEHOLDER}}", "Proof Burrower", "rsr-template-repo"],
+      reject_patterns = ["{{PLACEHOLDER}}", "{{PROJECT_NAME}}", "rsr-template-repo"],
     },
 
     coverage_updated = {
