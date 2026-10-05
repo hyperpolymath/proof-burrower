@@ -64,8 +64,11 @@ can be shipped as a `.wasm` artefact for ECHIDNA's typed-wasm oracle.
 == Identifiers and persistence
 
 * The ledger is JSON-lines on local disk, single writer.
-* `ledger::new_id` is the only identifier-minting function (time + process
-  sequence; not a UUID). `ledger::goal_hash` keys records by goal.
+* `crates/burrower-core/src/ids.rs` is the only identifier-minting module:
+  `new_record_id()` (UUIDv7) for ledger records and `content_id(value)`
+  (UUIDv8 over SHA-256 of the JCS bytes) for goals and prove results. See
+  `docs/ECHIDNA-INTEGRATION.adoc` § Identifiers. `ledger::goal_hash` still
+  keys records by goal (wasm ABI and existing ledgers depend on it).
 * Probe files live in a private per-attempt temporary directory that is
   removed after the child exits.
 
