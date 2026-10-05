@@ -109,7 +109,7 @@ Assessed
 * One row per independently-gradable unit. If a subsystem can ship or
 break independently, it gets its own row.
 * Evidence Summary must cite *numbers* (test counts, LOC, file counts)
-or *paths* (e.g. `+src/abi/Module.idr+`), never vague claims.
+or *paths* (e.g. `+src/interface/Abi/Types.idr+`), never vague claims.
 * Promotion blocker must be *actionable* — "`add external consumer in
 home context, then annotate`" beats "`needs more validation`".
 * Re-assess every release cycle; date-stamp each row.

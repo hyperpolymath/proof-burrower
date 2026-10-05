@@ -283,10 +283,10 @@ free from the substitution loop. The Burrower hits (e.g., the
 **Implementation sketch.**
 [source]
 ----
-src/rust/main.rs                 # add Suggest variant to Cli
-src/rust/suggest/mod.rs          # new module
-src/rust/suggest/synonyms.toml   # the curated substitution table
-src/rust/suggest/burrower.rs     # optional client to Burrower socket
+echidna/src/rust/main.rs                 # add Suggest variant to Cli
+echidna/src/rust/suggest/mod.rs          # new module
+echidna/src/rust/suggest/synonyms.toml   # the curated substitution table
+echidna/src/rust/suggest/burrower.rs     # optional client to Burrower socket
 ----
 
 === EI-3 (large): native ledger consumer
