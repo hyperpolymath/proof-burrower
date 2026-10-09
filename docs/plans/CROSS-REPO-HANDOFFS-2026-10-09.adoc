@@ -1,0 +1,370 @@
+= Cross-repo and bot hand-offs
+:toc: left
+:toclevels: 2
+:icons: font
+:date: 2026-10-09
+:status: DRAFT - nothing below has been filed. Each brief is filed only after owner approval.
+
+Companion to `docs/plans/ULTRAPLAN-2026-10-09.adoc`. IDs match the ultraplan:
+`R-` standards, `T-` rsr-template-repo, `E-` echidna, `B-` echidnabot,
+`H-` hypatia, `F-` fleet bots, `A-` affinescript.
+
+Ground rules that apply to every brief:
+
+* Hand-offs go to a repo's maintainers, or to the named bot through that repo's
+  normal intake. No standalone MCP servers; route through BoJ.
+* Each brief is self-contained. The receiving side does not need this repo to
+  act on it, except where a link is given.
+* No brief asks another repo to convert A2ML by hand. Any A2ML-to-deed work
+  follows the family mapping specs in `1-formats/deed/mappings/`.
+
+== Summary
+
+[cols="1,2,3,2", options="header"]
+|===
+| ID | Target | Ask | Blocks
+
+| R-1 | `hyperpolymath/standards` | Add gated Rust-workspace entries to root allowlist (D3) | G-ROOT-1, G-ROOT-3
+| R-2 | `hyperpolymath/standards` | Reconcile RSR 2.1.0-draft (A2ML) with the deed; move `check-rsr-profile.sh` to the deed | G-FMT, 2.2.1
+| R-3 | `hyperpolymath/standards` | Rule the ply mapping (no ruled mapping exists) | G-FMT-PLY
+| R-4 | `hyperpolymath/standards` | Rule the `0-AI-MANIFEST` mapping (D1) | G-ID-2, W3
+| R-5 | `hyperpolymath/standards` | Decide whether proof-burrower belongs in `bot_exclusion_registry` external-repos (G-ECO-1) | G-ECO-1
+| R-6 | `hyperpolymath/standards` | Exemption mechanism for historical audit reports in `check-no-placeholders` (G-PH-1) | G-PH-1
+| R-7 | `hyperpolymath/standards` | Make `check-lock-sync.sh` and `check-invisible-characters.sh` runnable without gawk / with documented args | Verification
+| T-1 | `hyperpolymath/rsr-template-repo` | Confirm canonical name: `coordination.k9` vs `coordination.k9.ncl` (D8) | G-ROOT-2
+| T-2 | `hyperpolymath/rsr-template-repo` | Mirror R-1 in the template's `.machine_readable/root-allow.txt` once decided | G-ROOT-3
+| E-1 | `hyperpolymath/echidna` | Tag a release carrying the `echidna.prove.result/1` contract, so consumers pin a tag, not a SHA | G-CI-4, B-1
+| E-2 | `hyperpolymath/echidna` | Stepwise proof-state contract with real state transitions and sub-goal counts | #105 P3, #104 P4
+| E-3 | `hyperpolymath/echidna` | `suggest --output json` contract (`echidna.suggest.result/1`) | Optional, EI-2
+| E-4 | `hyperpolymath/echidna` | End-to-end tests for `timeout` and `unknown` statuses | Trust of contract
+| E-5 | `hyperpolymath/echidna` | Optional `corpus near --format json` for dedupe | Low priority
+| B-1 | `hyperpolymath/echidnabot` | Re-pin echidna to a tagged release with the contract; keep handshake at `MIN_ECHIDNA_VERSION` 2.3.0 | Pin consistency
+| B-2 | `hyperpolymath/echidnabot` | Encrypt or hash webhook secrets at rest (currently plaintext in SQLite) | Security
+| B-3 | `hyperpolymath/echidnabot` | Creusot crate rename follow-up | Hygiene
+| B-4 | `hyperpolymath/echidnabot` | Fitness consumer (only if #104 P3 ships and the owner wants it) | Deferred
+| H-1 | `hyperpolymath/hypatia` | Implement `hypatia:rsr-conformance` so the presence-proxy can be replaced by the normative oracle | Tier scoring
+| F-1 | rhodibot (fleet) | Remake brief for `rhodibot.yml`, if D4 = remake | G-CI-5
+| F-2 | sustainabot (fleet) | Dependency-health advisory: Cargo deps and GitHub Action pins | 8.1.2
+| F-3 | seambot (fleet) | Contract tests for the Burrower-echidna seam, using golden fixtures for each status | #105/#104 safety
+| F-4 | glambot (fleet) | Doc reconciliation after W1 version alignment | G-VER-1
+| F-5 | finishbot (fleet) | Track W1–W4 gates as tasks; report when each gate passes | Wave tracking
+| A-1 | `hyperpolymath/affinescript` | Receive #84 if D5 = transfer | #84
+|===
+
+== Standards (`hyperpolymath/standards`)
+
+=== R-1 Root allowlist: Rust-workspace entries
+
+*Ask.* Add gated `?` entries to the RSR root allowlist for Rust workspaces:
+`Cargo.toml`, `Cargo.lock`, `crates/`, `rust-toolchain.toml`. The gate should
+apply only when a `rust` capability is declared.
+
+*Why.* Proof-burrower is a Rust workspace (`crates/burrower-cli`,
+`burrower-core`, `burrower-wasm`). The template allowlist has no Rust entries,
+so `check-root-shape.sh` flags a correct layout.
+
+*Acceptance.* `check-root-shape.sh` passes on proof-burrower with no repo moves.
+A repo without the `rust` capability still fails on those entries.
+
+=== R-2 RSR 2.1.0-draft vs the deed
+
+*Ask.* Reconcile the criteria file, which still requires A2ML descriptiles, with
+the deed format (`1-formats/deed/spec/abnf/deed.abnf` v1.1.0). Add the deed as
+an accepted record for `rsr-profile`, `anchor`, and `clade`. Move `scripts/check-rsr-profile.sh` from
+`.machine_readable/rsr-profile.a2ml` to the deed clause.
+
+*Why.* `rsr-criteria-v2.a2ml` criteria 3.1.8, 3.1.9, and 3.2.2 point to A2ML
+paths. The deed is the target format for new work.
+
+*Acceptance.* A repo with a deed `(rsr-profile …)` clause and no A2ML passes
+3.2.2 under the checker. The 2.1.0-draft status is stated explicitly in the spec.
+
+=== R-3 Ply mapping ruling
+
+*Ask.* Write the ruled ply mapping in `1-formats/deed/mappings/`. The template
+precedent is the `(ply …)` clause (pilot emitter). Also update
+`2-protocols/0-ai-gatekeeper/docs/AI-MANIFEST-SPEC.adoc`, which still describes
+ply prefixes.
+
+*Acceptance.* A mapping spec exists and `check-manifest-ply.sh` checks the
+deed form.
+
+=== R-4 `0-AI-MANIFEST` mapping ruling
+
+*Ask.* Rule the mapping for `0-AI-MANIFEST.a2ml` (D1). Recommended: Option A,
+as the mapping's own recommendation.
+
+*Acceptance.* The AI-MANIFEST mapping is ruled and cited from the deed spec.
+
+=== R-5 Bot exclusion registry
+
+*Ask.* Decide whether proof-burrower should appear in
+`bot_exclusion_registry.a2ml` `external-repos`. The registry currently lists
+only robot-repo-automaton and rhodibot/echidnabot source paths.
+
+*Acceptance.* A recorded decision, either way.
+
+=== R-6 Placeholder exemption for historical reports
+
+*Ask.* Let `check-no-placeholders` exempt historical audit reports, or
+explicitly state that a dated audit record is out of scope. Proof-burrower's
+hit is `docs/reports/audit/2026-04-07-template-standards-audit.adoc`.
+
+*Acceptance.* The checker passes on a repo whose only placeholder hits are in
+dated, historical audit records. Other placeholders still fail.
+
+=== R-7 Checker portability
+
+*Ask.* `check-lock-sync.sh` needs gawk (3-arg `match`). Either make it POSIX
+or state the requirement in its header. `check-invisible-characters.sh` takes
+`SCAN_ROOT RESULTS_FILE` but its usage line should say so.
+
+*Acceptance.* Both run on a stock Linux CI runner, or their requirements are
+documented.
+
+== rsr-template-repo (`hyperpolymath/rsr-template-repo`)
+
+=== T-1 Canonical coordination file name
+
+*Ask.* Decide `coordination.k9.ncl` (template) vs `coordination.k9` (standards
+`2-protocols/k9-coordination/` and this repo). Recommended: follow the
+template and rename the other side, unless standards rules otherwise (D8).
+
+*Acceptance.* One name in the template, the standards k9 directory, and the
+root allowlist.
+
+=== T-2 Mirror the Rust allowlist
+
+*Ask.* After R-1 is decided, mirror the gated Rust entries in
+`.machine_readable/root-allow.txt`.
+
+*Acceptance.* Template and standards allowlists agree. `check-root-shape.sh`
+passes on the template.
+
+== echidna (`hyperpolymath/echidna`)
+
+=== E-1 Tag the prove-result contract
+
+*Ask.* Cut a tagged release that includes the `echidna.prove.result/1` contract
+(first in commit `a71aa2c`, 2026-10-05, PR #409). Current `main` is `822cfc9`.
+Echidna's Cargo version is `2.3.0` and `echidna-core` is `0.2.0`.
+
+*Why.* proof-burrower's `proof-safety.yml` pins a commit SHA
+(`556d6468…`, pre-contract). A tag is easier to pin and review.
+
+*Acceptance.* A tag exists. `prove --output json` at that tag emits the
+contract for all five statuses (see E-4 for the two untested ones).
+
+=== E-2 Stepwise proof-state contract (the blocker)
+
+*Ask.* Provide a real stepwise proof-state interface, with:
+
+* `apply_tactic` returning a *new* state, not a clone of the input. Today the
+  FFI path (`src/interfaces/graphql/ffi_wrapper.rs`, `FfiProverBackend::apply_tactic`)
+  sends `format!("{:?}", tactic)` and returns `CoreTacticResult::Success(state.clone())`.
+* A proof-state type that carries the open goals, so a consumer can read a
+  sub-goal count. Today `CoreProofState::new(Term::Var(content))` holds the raw
+  file text.
+* `verify_proof` that reports on the state, not the file text
+  (`verify_proof(&self, _state)` ignores the state).
+* A JSON schema (`echidna.proofstate/1`) with a CLI or server surface, and a
+  stable identifier for the state so consumers can cache by it.
+
+*Why.* proof-burrower #105 (P3) needs step-level caching. #104 (P4) needs
+`GoalReduction`. Neither can be implemented on the current surface.
+
+*Acceptance.* A two-goal fixture lemma: applying one tactic yields one
+remaining goal, and the sub-goal count is reported in JSON. Same input gives
+the same state id. Tests run in CI.
+
+=== E-3 `suggest` JSON contract (optional)
+
+*Ask.* `echidna suggest` JSON output as `echidna.suggest.result/1`, following
+the same discipline as the prove contract (versioned schema, JCS-canonical
+output, unknown fields ignored).
+
+*Acceptance.* A golden-output test for the schema. Not needed for #105 or #104.
+
+=== E-4 `timeout` and `unknown` end-to-end
+
+*Ask.* The contract spec states that `timeout` and `unknown` are covered only
+by golden unit tests, because no backend that runs without an external prover
+produces them. Add an end-to-end test that produces each status from a fixture
+(for example, a test prover with a configurable delay or an unknown verdict).
+
+*Why.* echidnabot and proof-burrower both act on these statuses.
+
+*Acceptance.* `tests/prove_output_json.rs` covers `timeout` and `unknown`
+end-to-end.
+
+=== E-5 Corpus near-duplicate query (optional, low priority)
+
+*Ask.* `echidna corpus near --format json`, so proof-burrower can dedupe against
+echidna's corpus without growing its own indexer. Only after E-1 and only if
+the owner wants the overlap removed.
+
+=== E-6 Estate tidy (route to standards)
+
+echidna tracks 55 `.a2ml` files, has no deed, and its root holds many entries
+outside the template allowlist. Treat this as a standards decision (R-1, R-2),
+not an echidna-only fix. Do not hand-convert.
+
+== echidnabot (`hyperpolymath/echidnabot`)
+
+=== B-1 Re-pin echidna to a tag
+
+*Ask.* echidnabot pins echidna git rev `b761b3a8…`, which was live-traced on
+2026-10-05 against `a71aa2c`. Re-pin to the tag from E-1, or to a commit at or
+after `a71aa2c`. Keep the startup handshake at `MIN_ECHIDNA_VERSION` 2.3.0
+(`src/dispatcher/echidna_client.rs:23`).
+
+*Acceptance.* The handshake passes against the new pin. The strict parser
+(`src/dispatcher/prove_result.rs`) accepts the `echidna.prove.result/1` output
+on the pin.
+
+=== B-2 Webhook secrets at rest
+
+*Ask.* Webhook secrets are stored in plaintext in SQLite. Encrypt them with a
+key from the environment, or store a keyed hash if verification only needs
+comparison. Rotate existing secrets on migration.
+
+*Acceptance.* A migration removes plaintext secrets. Tests show verification
+still works. The owner signs off the approach.
+
+=== B-3 Creusot crate rename follow-up
+
+*Ask.* Upstream intends to rename `echidna-core-creusot` (its name in
+`Cargo.toml` line 34 comment and `docs/ECHIDNA-INTEGRATION.adoc` line 37 say
+"being renamed"). When echidna ships the rename, update echidnabot's dependency
+and docs. Until then, track the follow-up; do not rename early.
+
+*Acceptance.* Build and tests pass with the upstream crate name. Docs match.
+
+=== B-4 Fitness consumer (deferred)
+
+*Ask.* Only if proof-burrower #104 P3 ships and the owner wants echidnabot to
+query burrower fitness. Consumer side only, through the line-delimited JSON
+surface (`burrower serve`). Do not build it before P3 exists.
+
+== Hypatia (`hyperpolymath/hypatia`)
+
+=== H-1 Implement `hypatia:rsr-conformance`
+
+*Ask.* Implement the normative RSR oracle that standards names in
+`docs/AFFIRMATION.adoc` and `docs/AUDIT.adoc`. It must produce a tier score
+per repo.
+
+*Why.* Every compliance statement in the ultraplan is currently a repo-local
+check or a presence proxy. The oracle is what the standards actually ratify.
+
+*Acceptance.* Run against proof-burrower, the oracle returns a per-criterion
+verdict that matches the presence-proxy table where a file is absent, and
+explains each `manual` criterion.
+
+== Fleet bots
+
+The roster is in standards `docs/proofs/spec-templates/T2-high/gitbot-fleet.adoc`.
+Roles (from standards docs): rhodibot (structure and format conformance),
+echidnabot (proof verification), sustainabot (dependency health), glambot
+(documentation), seambot (integration), finishbot (task completion).
+
+=== F-1 rhodibot: remake brief (only if D4 = remake)
+
+*Ask.* `rhodibot.yml` is 78% red and marked "retire or remake" in the standards
+CI catalog. If remake: enforce the template root allowlist and deed format, not
+A2ML. Keep it report-only until the owner accepts its results on proof-burrower.
+The green-run threshold is the owner's call, not a value this plan sets.
+
+*Depends on.* R-1, R-2.
+
+=== F-2 sustainabot: dependency-health advisory
+
+*Ask.* Advisory report (no auto-merge) on:
+
+* `Cargo.toml` and `Cargo.lock` dependencies of `crates/burrower-core`,
+  `burrower-cli`, `burrower-wasm`;
+* GitHub Action pins in `.github/workflows/` (the template's
+  `check-action-pinning` rule applies).
+
+*Acceptance.* A report, with each finding tagged by severity. Nothing is merged
+or bumped without an owner decision.
+
+=== F-3 seambot: Burrower-echidna contract tests
+
+*Ask.* Contract tests for the seam between `burrower attempt` and
+`echidna prove --output json`. Use golden fixtures for each status (verified,
+failed, error, timeout, unknown). Test the flags the seam sends: `--prover`,
+`--project-root`, `--sandbox`, `--output json`.
+
+*Why.* Burrower already depends on this contract (`attempt.rs`). The seam is
+where a silent break would happen.
+
+*Acceptance.* Tests run in proof-burrower CI. A deliberately malformed payload
+fails closed (the strict parser rejects it).
+
+=== F-4 glambot: documentation reconciliation
+
+*Ask.* After W1's version alignment, reconcile `README.adoc`, `STATE.a2ml`
+(via the deed), `CHANGELOG.adoc`, and the Justfile version. Report
+inconsistencies. Do not rewrite the README without owner review.
+
+*Depends on.* W1 version alignment.
+
+=== F-5 finishbot: W-gate tracking
+
+*Ask.* Track the W1–W4 gates from the ultraplan as tasks. Report when each
+gate command passes: `must-spdx-headers`, `check-no-vlang`,
+`check-no-placeholders`, `validate-state`, `validate-rsr`, `check-no-a2ml`,
+and the deed lint.
+
+*Acceptance.* A task list with a status per gate.
+
+== affinescript (`hyperpolymath/affinescript`)
+
+=== A-1 Receive #84 (only if D5 = transfer)
+
+*Ask.* Accept the transfer of #84 (or its tracking) from proof-burrower. The
+acceptance criteria travel with it:
+
+* establish the provenance and intended dependency boundary of the embedded
+  copy;
+* implement or remove each unsupported public capability, with tests;
+* reconcile with the canonical repo (this one);
+* keep the distinction from the independently tested Rust `burrower-core` /
+  ECHIDNA Isabelle integration;
+* do not treat tracking the debt as completing it.
+
+The debt list: editor and bridge placeholders; a stub formatter; linter effect
+checks incomplete; trait conversion, signature, overlap, and unification checks
+incomplete; Phase 6 runtime placeholders; Phase 8 package-manager
+placeholders; LSP fix suggestions incomplete.
+
+*Acceptance.* The issue has a provenance statement and a status per debt item.
+
+== Sequencing of these briefs
+
+[cols="1,4", options="header"]
+|===
+| Order | Briefs
+
+| First (no dependencies)
+| R-1, R-3, R-4 (rulings), R-5, R-6, R-7, E-1, B-2, F-2, F-3
+
+| After standards rulings
+| R-2, T-1, T-2, F-1 (if remake), H-1
+
+| After E-1
+| B-1, E-5
+
+| On the blocker
+| E-2 (needed by #105 P3 and #104 P4). Start early: it is the longest item.
+
+| On owner decision
+| A-1 (D5), B-4 (deferred), E-3 (optional)
+|===
+
+== Not filed
+
+Nothing in this file has been filed. Filing creates visible issues in other
+repos. Each brief is filed only after the owner approves it, and this
+repo's ultraplan has been reviewed.
