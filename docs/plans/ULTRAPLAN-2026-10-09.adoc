@@ -1,0 +1,692 @@
+= Proof Burrower Ultraplan
+:toc: left
+:toclevels: 2
+:icons: font
+:source-highlighter: rouge
+:date: 2026-10-09
+:status: PLAN ONLY - no bulk edits performed; decisions gate migration
+
+[abstract]
+This plan says how to bring `proof-burrower` in line with the hyperpolymath
+standards repository and the RSR template format, how to resolve the three open
+issues (#105, #104, #84), and which hand-offs go to which bot in which repo.
+Companion file: `docs/plans/CROSS-REPO-HANDOFFS-2026-10-09.adoc`.
+
+== 0. Ground rules for executing this plan
+
+* *Plan, not bulk edit.* No A2ML is converted by hand. The retired A2ML files
+  move to the deed format only through the family mapping specs in
+  `standards/1-formats/deed/mappings/`, using the tooling named there.
+* *Normative sources.* Deed grammar: `1-formats/deed/spec/abnf/deed.abnf`
+  (v1.1.0). RSR criteria: `0-canon/rsr/rsr-criteria-v2.a2ml` (2.1.0-draft).
+  Root shape: template `.machine_readable/root-allow.txt`, checked by
+  `scripts/check-root-shape.sh`.
+* *Oracle caveat.* The normative RSR oracle, `hypatia:rsr-conformance`, is not
+  implemented yet. Every compliance statement below is a repo-local check or a
+  file-presence proxy, and is labelled as such.
+* *Owner decisions* are listed in section 7 and block the steps that depend on
+  them. Nothing in section 7 is decided by this plan.
+
+== 1. Evidence baseline (what was run, 2026-10-09)
+
+[cols="3,2,5", options="header"]
+|===
+| Check | Result | Notes
+
+| `check-root-shape.sh`
+| error
+| No allowlist at `.machine_readable/root-allow.txt`.
+
+| `check-no-a2ml.sh`
+| FAIL
+| 119 tracked `.a2ml` files. Template tracks 0.
+
+| `check-no-md-in-docs.sh`
+| PASS
+| 5 `.md` under `docs/`, none allow-listed.
+
+| `check-no-placeholders.sh`
+| FAIL
+| 13 files still carry `{{...}}` tokens (listed in section 2.3).
+
+| `check-no-vlang.sh`
+| FAIL
+| 3 hits: `Justfile:273`, `.machine_readable/contractiles/Justfile:272`,
+  `.machine_readable/integrations/groove.a2ml:4`.
+
+| `check-lock-sync.sh`
+| not run
+| Needs `gawk` (`awk` lacks 3-arg `match`).
+
+| `check-invisible-characters.sh`
+| not run
+| Needs `SCAN_ROOT RESULTS_FILE` arguments.
+
+| `just validate-rsr`
+| FAIL
+| Missing `licensing/exhibits/EXHIBIT-{A-ETHICAL-USE,B-QUANTUM-SAFE}.txt`,
+  `licensing/texts/MPL-2.0.txt`, and META/MAINTENANCE-AXES/CHECKLIST fields.
+  The recipe still requires the retired A2ML files.
+
+| `just validate-state`
+| FAIL
+| `STATE.a2ml: INVALID (missing required sections)`.
+
+| `just verify-template`
+| FAIL
+| Justfile still says `rsr-template-repo`; `{{REGISTRY}}/{{SERVICE_NAME}}` in
+  `container/compose.toml`; Groove manifest port 0.
+
+| `scripts/validate-template.sh`
+| FAIL
+| Phase 1: `src/interface/abi` missing.
+
+| `just must-spdx-headers`, `just must-no-banned-files`
+| PASS
+| 6 of 109 source-like files lack an SPDX header in their first 12 lines.
+
+| `proof-safety.yml` (run 37371572643, `main`, 2026-10-05)
+| failure
+| Job `cancelled`, no retrievable logs. *Cause unknown; not diagnosed.*
+|===
+
+Other `main` workflows (Rust CI, Hypatia, Governance, Secret Scanner,
+Scorecard) were green on 2026-10-05 through 2026-10-09.
+
+=== 1.1 Presence-proxy RSR baseline
+
+Method: `rsr-criteria-v2.a2ml` was parsed. Criteria were kept if their gate is
+`universal` or matches a *provisional* declared capability set:
+`rust, cli, library, bash, governance-tier, docs-site`. Each criterion's
+`template_ref` was then checked for existence. Criteria with `template_ref = "-"`
+or no path were counted as manual. This is a *file-presence proxy*. It does
+not check content, so a file that is present can still fail its content gate.
+
+[cols="2,6", options="header"]
+|===
+| Result | Count
+
+| Applicable criteria
+| 60 (of 78; 18 gated off by capability)
+
+| Present
+| 38
+
+| Missing (presence)
+| 8
+
+| Manual / no template path
+| 14
+|===
+
+Missing by presence (criterion, tier, template path):
+
+[cols="1,1,4", options="header"]
+|===
+| Id | Tier | Path expected by template
+
+| 1.2.2 git-hooks | silver | `ci/.pre-commit-config.yaml` (repo has root `.pre-commit-config.yaml`, which is not allowed at root)
+| 1.2.4 tool-versions | silver | `.tool-versions`
+| 2.2.1 wellknown-core | silver | `.well-known/`
+| 3.1.8 anchor | gold | `.machine_readable/descriptiles/anchors/ANCHOR.a2ml` (see section 2.2 for the deed route)
+| 3.1.9 clade | gold | `.machine_readable/descriptiles/CLADE.a2ml` (deed route, section 2.2)
+| 3.2.2 rsr-profile | silver | `.machine_readable/rsr-profile.a2ml` (deed route, section 2.2)
+| 5.1.1 no-python | bronze | `.github/workflows/estate-rules.yml` (repo has none)
+| 10.1.3 affirmation | gold | `docs/AFFIRMATION.adoc`
+|===
+
+Manual criteria, with the evidence this recon actually produced:
+
+* no-vlang (5.1.4): FAIL (3 hits, section 1).
+* spdx-headers (4.1.1): 6 source-like files lack the header (section 1).
+* no-makefile (1.1.3): PASS (no Makefile tracked).
+* no-go (5.1.5), no-rescript (5.1.3), no-secrets (4.1.2), a2ml-valid (3.2.1):
+  *not checked* in this recon. Their status is unknown, not passing.
+
+The bronze tier cannot be claimed until 5.1.1 (no-python estate-rules workflow)
+and 5.1.4 (no-vlang) are fixed.
+
+The baseline is an input to the work in section 2, not a score.
+
+== 2. Standards and RSR compliance gaps
+
+Each gap has an ID (`G-…`), a current state, a target, the gating reference,
+and a wave (section 5). Gaps that need an owner decision say so.
+
+=== 2.1 Root shape
+
+[cols="1,4,4", options="header"]
+|===
+| ID | Current | Target
+
+| G-ROOT-1
+| Not allowed at root under the template allowlist: `.bot_directives/`,
+  `.gitlab-ci.yml`, `.guix-channel`, `.pre-commit-config.yaml`,
+  `0-AI-MANIFEST.a2ml`, `Cargo.lock`, `Cargo.toml`, `Containerfile`,
+  `agents/`, `audits/`, `container/`, `contractile.just`, `coordination.k9`,
+  `crates/`, `eclexiaiser.toml`, `rust-toolchain.toml`, `selur-compose.toml`,
+  `setup.sh`, `stapeln.toml`, `tools/`.
+| Each entry is moved, retired, or allow-listed. The Rust workspace
+  (`Cargo.toml`, `Cargo.lock`, `crates/`, `rust-toolchain.toml`) needs an
+  allowlist ruling, *owner decision D3*. Moves are not made until D3 is decided.
+
+| G-ROOT-2
+| Required by the template allowlist but absent: `CLAUDE.md`, `launcher.sh`,
+  `coordination.k9.ncl`, `.gitleaksignore`, `.cicd-hygiene-allow`,
+  `.gitmessage`, `.mailmap`, `.clinerules`, `.cursorrules`, `.windsurfrules`
+  (inert under `.machine_readable/ai/`), `build/`, `ci/`.
+| Create the ones that apply. `CLAUDE.md` and the agent rule files are
+  templates. `coordination.k9` vs `coordination.k9.ncl` is *decision D8*.
+
+| G-ROOT-3
+| The allowlist has no Rust-workspace entries.
+| Standards-side decision, not a repo move (see D3).
+|===
+
+=== 2.2 Format: A2ML to deed
+
+The RSR criteria 2.1.0-draft still require A2ML descriptiles and do not
+mention the deed. The deed format (standards `1-formats/deed/`) is the target
+for new work. The repo carries *119 tracked `.a2ml` files* in these groups:
+
+[cols="3,2,5", options="header"]
+|===
+| Group | Count | Plan
+
+| `docs/`
+| 45
+| Docs that are prose should be `.adoc`. Structured records move to the deed through the mapping.
+
+| `src/`
+| 17
+| Examples and code-adjacent data. Check each: some are real config, some are sample text.
+
+| `.machine_readable/descriptiles/`
+| 11
+| Includes `anchor/`. Anchor and CLADE map to deed `(anchor …)` and `(clade …)`.
+
+| `verification/`
+| 9
+| Proof-status records. Check against the proof policy first.
+
+| `.machine_readable/integrations/`
+| 5
+| Groove and similar. Groove's `port 0` is a bug and needs fixing in its mapping.
+
+| `.machine_readable/contractiles/`
+| 5
+| Contractile mappings. One of these is the Justfile `vlang` hit.
+
+| `features/`
+| 4
+| Feature records.
+
+| `.machine_readable/scripts/`
+| 4
+| Scripts that read A2ML. They must be rewritten to read the deed before the A2ML is removed.
+
+| `.machine_readable/policies/`
+| 4
+| Policy records. Map to deed `(policy …)` clauses once the mapping says so.
+
+| `.bot_directives/`
+| 3
+| Untouched template boilerplate (`methodology`, `coverage`, `debt`). Migrates to `(bot-directives …)` (section 2.4).
+
+| `.machine_readable/ai/`
+| 2
+| AI-facing records. Depends on D1.
+
+| root, examples, container, audits, `.github`, anchors, configs
+| 1 each (plus `ENSAID_CONFIG.a2ml`, `CLADE.a2ml`, `0.1-AI-MANIFEST.a2ml`, `0-AI-MANIFEST.a2ml`)
+| Per-file mapping. `0-AI-MANIFEST` mapping is *decision D1*.
+|===
+
+Rules for the conversion:
+
+* Every family is converted under its own mapping spec in
+  `1-formats/deed/mappings/`. The mapping set covers CLADE, META/ECOSYSTEM,
+  AGENTIC/NEUROSYM/PLAYBOOK, STATE v1, AI-MANIFEST, and scorecard.
+* *Ply has no ruled mapping yet.* The per-directory `0.x-AI-MANIFEST.a2ml`
+  files form a ply tree. The template precedent is a `(ply …)` clause in its
+  deed (the pilot emitter). Until the standards owners rule, the ply tree is
+  left in place and nothing is deleted. (*Gap G-FMT-PLY*, depends on standards R4.)
+* The deed for this repo currently has *identity, clade, forges, lineage, status,
+  maturity, ecosystem* and lints OK. It is *missing* `rsr-profile`, `meta`,
+  `agentic`, `neurosym`, `playbook`, `bot-directives`, `contractiles`,
+  `manifest`, `ply`, `anchor`, `ensaid`, `integrations`, `policies`.
+  The template deed has all of them and is the worked model.
+* Each mapping is applied one family at a time. After each family the repo's
+  own gates (`check-no-a2ml`, `validate-rsr`) and the deed lint run. Deletions
+  come only after the deed and every reader have been switched.
+
+==== 2.2.1 `rsr-profile`
+
+Template value (the model to follow):
+`(rsr-profile :version "1.0.0" :spec "rsr-criteria-v2" :declares-against "2.1.1-draft" :role "spine" :capabilities (...))`.
+
+The template capability set is: `zig, idris2, bash, cli, library, ffi, abi,
+formal-proofs, docs-site, container, reproducible-build, benchmarks,
+governance-tier`. For this repo the capability list must be *earned*, not
+copied. Proposed provisional set: `rust, cli, library, bash, governance-tier,
+docs-site`. Decide `ffi` (the `burrower-wasm` crate exposes a C-ABI surface),
+`container` (the root `Containerfile` is an unfilled template; see D2),
+`formal-proofs` (`verification/proofs/` has Lean4, TLA+, Agda, and Coq files;
+Coq `TypeSafety.v` needs real proof markers), and `reproducible-build`.
+
+Upstream tension: `scripts/check-rsr-profile.sh` still reads
+`.machine_readable/rsr-profile.a2ml`. Standards must reconcile (R2).
+
+=== 2.3 Identity and placeholders
+
+* G-ID-1: `rsr-template-repo` appears in 23 files. The Justfile sets
+  `project` and `REPO` to `rsr-template-repo` (lines 23–25), copied from the
+  template. Replace with `proof-burrower` / the right repo name.
+* G-ID-2: `0-AI-MANIFEST.a2ml` describes itself as the *template's* manifest.
+  Rewrite for this repo, or retire through D1.
+* G-ID-3: `.bot_directives/methodology.a2ml` lists `rsr-template-repo` as a
+  reject pattern. Fix via the bot-directives migration (2.4).
+* G-PH-1: Placeholder tokens in 13 files:
+  `container/*` (`{{PORT}}`, `{{SERVICE_NAME}}`, `{{REGISTRY}}`),
+  `.github/settings.yml` (`{{REPO}}` / `{{DESCRIPTION}}` appear only inside
+  explanatory comments; this is a checker false positive that a rewording
+  fixes, and the file has no identity keys), `.bot_directives/methodology.a2ml`,
+  `.github/CODE_OF_CONDUCT.md`, `docs/reports/audit/2026-04-07-template-standards-audit.adoc`,
+  `.machine_readable/self-validating/methodology-guard.k9.ncl`, plus the root
+  `Containerfile` (`{{project}}`, `TODO` stages).
+  The audit report is a historical record. Either reword it or add an
+  allowlist entry (R8).
+* G-VER-1: Version drift. `Justfile` `version := "0.1.0"`, `Cargo.toml`
+  `version = "0.0.1"`, `STATE.a2ml` `phase: pre-alpha`, `CHANGELOG.adoc` is
+  `[Unreleased]` only, and there are no git tags. Pick one version, align
+  Justfile, Cargo, and the deed status, and tag only after an owner decision.
+
+=== 2.4 Bot directives
+
+Template keeps them as deed clauses: `(bot-directives (methodology))`,
+`(coverage)`, `(debt)`, `(rra)`. The repo's `.machine_readable/bot_directives/`
+holds only `README.adoc`. The repo's `.bot_directives/{methodology,coverage,debt}.a2ml`
+is untouched template boilerplate: coverage `total-components = 0`, debt empty.
+Migration: replace with real values and move them into deed clauses using
+`scripts/deed-clause.sh`. Methodology defaults from the template (hybrid mode,
+ring-ceiling 2, wave-cap 2, spike-required true, priority weights
+must/should/could = 3/2/1, convergent budget 70/20/10) should be kept only
+where they are actually used. The template value is not automatically correct.
+
+=== 2.5 Language policy
+
+[cols="2,5", options="header"]
+|===
+| Gap | Action
+
+| `check-no-vlang` (3 hits)
+| Remove the V reference from `Justfile:273`, `.machine_readable/contractiles/Justfile:272`, and `.machine_readable/integrations/groove.a2ml:4`. Rewrite the groove record as part of the integrations mapping.
+
+| Inline Python: `.github/workflows/dogfood-gate.yml:268` (`python3 -c` tomllib check of `eclexiaiser.toml`)
+| Replace with a Rust or shell check. If it has to stay for now, add a shrink-only ledger at `.machine_readable/inline-python-allow.txt` (absent today) and track it in `check-inline-python.sh`.
+
+| Coq `verification/proofs/coq/TypeSafety.v`
+| Add real proof markers. Do not count a file with placeholder proofs as verified.
+
+| Lean4, TLA+, Agda proofs
+| Confirm each is on the allowed-list before the `formal-proofs` capability is claimed.
+
+| `agents/*.007` (DSL files)
+| Carry MPL-2.0 SPDX headers. The 007 DSL may be ARR-licensed. *Decision D6* before any change.
+
+| SPDX gaps (6 files)
+| `.github/copilot/coding-agent.yml`, `.github/funding.yml`, `.machine_readable/scripts/forge/git-cleanup.sh`, `scripts/invariant-path.sh`, `session/dispatch.sh`, `session/local-hooks.sh`. Add headers that match the file's licence.
+|===
+
+=== 2.6 Build, container, and gates
+
+* G-CI-1: `just validate-rsr` cannot pass until the licensing files exist
+  (`licensing/exhibits/EXHIBIT-A-ETHICAL-USE.txt`,
+  `EXHIBIT-B-QUANTUM-SAFE.txt`, `licensing/texts/MPL-2.0.txt`) and the
+  META/MAINTENANCE-AXES/CHECKLIST fields are filled. Retiring the A2ML files
+  first would break it, so the recipe must move to the deed first.
+* G-CI-2: `just validate-state` fails because `STATE.a2ml` is missing required
+  sections. The fix is the STATE v1 mapping (`1-formats/deed/mappings/`),
+  not a hand rewrite.
+* G-CI-3: `just verify-template` and `scripts/validate-template.sh` fail.
+  Fix the Justfile identity and the `container/compose.toml` placeholders,
+  and decide what Phase 1's `src/interface/abi` means for a CLI with no ABI
+  surface. Either add the directory or mark the phase not applicable with a
+  recorded reason.
+* G-CI-4: `proof-safety.yml` pins echidna `556d6468…` (pre-contract). The
+  run on 2026-10-05 failed with a cancelled job and no logs. *Do not guess
+  the cause.* First re-run on a branch and capture logs, then decide (D7 is the pin bump).
+* G-CI-5: `rhodibot.yml` is marked "78% red; retire or remake" in the
+  standards CI workflow catalog and the cicd-regularisation spec.
+  *Decision D4.*
+* G-CI-6: Template workflows the repo lacks: `build-notification`,
+  `deed-validate`, `docker-build`, `dogfood-summary`,
+  `dot-wellknown-enforcement`, `e2e.yml.template`, `eclexiaiser-validate`,
+  `empty-linter`, `estate-rules`, `groove-check`, `guix-policy`,
+  `k9-validate`, `lock-sync-gate`, `ossf-best-practices`,
+  `rsr-compliance-canary`, `sonarqube`. Adopt the ones that apply to a Rust CLI
+  (`deed-validate`, `k9-validate`, `lock-sync-gate`, `estate-rules`,
+  `rsr-compliance-canary`, `ossf-best-practices`). Mark the rest N/A with a
+  reason. Do not copy all of them.
+* G-CI-7: `.github/` duplicates. `FUNDING.yml` and `funding.yml` are both
+  present. Keep one. Extras vs template (`.mailmap`, `.nojekyll`,
+  `0.1-AI-MANIFEST.a2ml`, `DIRECTORY.adoc`, `MAINTAINERS`, `SUPPORT`) need a
+  keep/move decision each.
+* G-CONT-1: The root `Containerfile` is an unfilled template: `TODO` stages,
+  `{{project}}` tokens, and a runtime stage with no binary. It is not a
+  working build for the Burrower CLI. *Decision D2:* keep and make it build
+  the `burrower` binary, or remove it and drop the `container` capability.
+  The `container/` scaffold follows the same decision.
+
+=== 2.7 Ecosystem registration
+
+* G-ECO-1: The standards `bot_exclusion_registry.a2ml` lists only
+  robot-repo-automaton and rhodibot/echidnabot source paths. Proof-burrower
+  is not in its `external-repos` list. Standards R6 decides whether it
+  should be.
+* G-ECO-2: The gitbot-fleet roster (`docs/proofs/spec-templates/T2-high/gitbot-fleet.adoc`)
+  is rhodibot, echidnabot, sustainabot, glambot, seambot, finishbot. Each
+  hand-off in the companion file goes to one of these or to the named repo's
+  own maintainers. Policy: no standalone MCP servers; route through BoJ.
+
+== 3. Issue-by-issue path
+
+=== 3.1 #105 - combinatorial tactic-playbook synthesis (ParadisEO-mo)
+
+*Status:* open, `enhancement`, updated 2026-10-09. Acceptance criteria:
+(a) the swarm synthesises multi-step proofs on benchmark lemmas that fail under
+static single-specialist playbooks; (b) intermediate goal caching cuts redundant
+prover invocations by at least 40% during local search; (c) full compatibility
+with `burrow.jsonl` ledger formats.
+
+*Feasibility, from the code:*
+
+* `TacticTemplate` (`crates/burrower-core/src/attempt.rs:50`) is
+  `{name, script, description}`. `generate_probe` builds one
+  `lemma probe_lemma: … {script}` per attempt. There is *no multi-step tactic
+  AST*, so the neighbourhood operators (swap adjacent steps, substitute premise,
+  flip flags) have nothing to operate on yet.
+* Step-level delta caching needs a stepwise proof-state interface from ECHIDNA.
+  echidna's stepwise surface is *thin*. The FFI `apply_tactic` sends a
+  Debug-formatted string and returns a clone of the input state. `verify_proof`
+  reads the file text. A proof state is `Term::Var(content)`. So no real
+  intermediate goal is available. The CLI has `interactive`, but no contracted
+  stepwise protocol exists.
+* ParadisEO is C++. The language policy does not allow C++. *Recommendation:
+  reimplement the required pieces (tabu, VNS, neighbourhood evaluation) in
+  Rust.* No C++ dependency.
+
+*Phased path:*
+
+[cols="1,4,3", options="header"]
+|===
+| Phase | Work | Exit
+
+| P1 - Tactic AST (Burrower only)
+| Define a `TacticScript` as a list of steps for the Isabelle subset that the
+  swarm already emits. Add parse/print round-trip tests. Add the three
+  neighbourhood operators (swap, premise substitution by signature Jaccard
+  distance, flag change) as pure functions.
+| Round-trip and operator unit tests pass. No prover calls.
+
+| P2 - Whole-script memoisation (Burrower only)
+| Cache results keyed by `hash(lemma, script)`. Count prover invocations with
+  and without the cache on the benchmark set. This is an *honest interim*. A
+  memo hit requires an exact repeat, so it may not reach 40%.
+| Measured invocation counts, reported as they are.
+
+| P3 - Stepwise caching (blocked)
+| Needs the ECHIDNA stepwise contract (hand-off E-2 in the companion file).
+  Only then can "replay steps 1…k−1 from cache, evaluate from k" be
+  implemented.
+| Blocked on echidna. Do not fake it.
+
+| P4 - Local search driver
+| Tabu/VNS driver in the swarm, with strict attempt bounds and timeouts, and
+  a fall-back to manual review.
+| Attempt bound and timeout tests pass.
+
+| P5 - Benchmark and acceptance
+| Define the benchmark lemma set (lemmas that fail under static playbooks).
+  Reuse `docs/experiments/2026-04-26-tropical-comparison/` if it fits (20
+  ledger records there). Owner decides the set (D9). Report (a) and (b)
+  against it.
+| Acceptance (a) and (b) reported with numbers. (b) is marked not met if P3 is still blocked.
+
+| P6 - Ledger compatibility (c)
+| Only *additive* optional fields in `LedgerRecord` (`crates/burrower-core/src/ledger.rs`).
+  Existing `pattern_kind` values (`positive|anti-pattern|specialisation|boundary`)
+  stay. Add a test that reads an old-format ledger unchanged.
+| Old ledger fixtures parse. Round-trip test passes.
+|===
+
+*Hand-offs:* E-2 (echidna stepwise contract) for P3. The echidna-side
+`suggest` JSON contract (E-3) is not needed for #105 and should not be bundled
+with it.
+
+=== 3.2 #104 - anti-pattern mining and fitness formulation
+
+*Status:* open, `enhancement`, updated 2026-10-09. Acceptance criteria:
+(a) unit tests show known ledger anti-patterns get significant negative fitness
+penalties; (b) fitness evaluation under 1 ms per candidate script, in memory,
+no live prover call; (c) CLI and socket endpoints follow the existing
+line-delimited JSON API.
+
+*Feasibility, from the code:*
+
+* The ledger already has `pattern_kind` and `anti_patterns_for()`
+  (`crates/burrower-core/src/ledger.rs:182`). `burrower ledger anti-patterns`
+  reports them as text (`crates/burrower-cli/src/main.rs:218`). Reuse them.
+* The issue uses `burrow.jsonl`. That file is not tracked in the repo (it is
+  produced at runtime by `attempt --ledger burrow.jsonl`). The tracked sample is
+  `docs/experiments/2026-04-26-tropical-comparison/ledger.jsonl` (20 records).
+  Use the tracked sample for unit tests. Do not commit a live `burrow.jsonl`.
+* The socket surface is `burrower serve --socket /tmp/burrower.sock`
+  (`crates/burrower-cli/src/main.rs:130–138`; protocol in
+  `crates/burrower-core/src/serve.rs`).
+* The `GoalReduction` term needs a remaining-sub-goal count from the prover.
+  echidna's stepwise path does not provide one (see 3.1). So `GoalReduction`
+  is *blocked*.
+* The weights w1…w4 are not specified anywhere in the issue. *Decision D10.*
+
+*Phased path:*
+
+[cols="1,4,3", options="header"]
+|===
+| Phase | Work | Exit
+
+| P1 - Ledger-only terms
+| Implement `AntiPatternPenalty` (from `pattern_kind = anti-pattern`
+  records, matched by signature/learning), `EstimatedTime` (from recorded
+  durations), and `SignatureSimilarity` (token Jaccard, sharing code with the
+  indexer). `burrower_core::fitness` module, pure functions.
+| Unit tests: anti-pattern fixtures from the tracked ledger get a large
+  negative penalty (acceptance a).
+
+| P2 - Latency
+| Benchmark the in-memory evaluation (not the CLI process spawn). Target
+  under 1 ms per candidate.
+| Benchmark result recorded (acceptance b).
+
+| P3 - Surfaces
+| `burrower fitness "<goal>" "<tactic_script>"` CLI subcommand. Matching
+  socket op in `serve.rs`, following the existing line-delimited JSON.
+| Golden JSON tests for both (acceptance c).
+
+| P4 - GoalReduction (blocked)
+| Add the term once E-2 (stepwise contract) provides sub-goal counts.
+| Blocked on echidna.
+
+| P5 - Mining and calibration
+| Mine the ledger for high-frequency failure loops (looping simplifier
+  rewrites, diverged inductions). Calibrate w1…w4 with the owner (D10).
+| Weights and penalty matrix versioned and documented.
+|===
+
+*Hand-offs:* E-2 for P4; B-2 (echidnabot) only if echidnabot is to query fitness.
+The issue says "ECHIDNA can query fitness". That is a consumer contract,
+which can only follow the socket surface in P3.
+
+=== 3.3 #84 - embedded AffineScript tree (misfiled)
+
+*Status:* open, no label. Author `hyperpolymath`, created 2026-09-07.
+The body lists the debt in the embedded `affinescript/` tree: placeholders in
+the editor and bridge sources, a stub formatter, incomplete trait/unification
+checks, Phase 6 runtime placeholders, Phase 8 package-manager placeholders, and
+incomplete LSP fix suggestions. It asks for provenance, a dependency boundary,
+reconciliation with the canonical repo, and no claim that tracking completes
+the work.
+
+*Finding:* `affinescript/` is *absent from this repo*, and `git log --all -- affinescript`
+returns *zero commits*. It was never committed here. The canonical repo
+`hyperpolymath/affinescript` exists and is active (not archived).
+
+*Path:*
+
+. Confirm with the reporter (owner) that this is misfiled. (D5)
+. Leave a comment on #84 pointing to `hyperpolymath/affinescript`, and state
+  that no affinescript code exists in this repo.
+. Transfer the issue to `hyperpolymath/affinescript`, or close it here as
+  misfiled and reopen the tracking there. Either way, the acceptance criteria
+  (provenance, placeholder removal, tests) move with it. The owner decides
+  transfer vs close.
+. Do not add an `affinescript/` directory to this repo.
+. Keep the distinction the issue asks for: the independently tested
+  `burrower-core` / ECHIDNA Isabelle integration is not affinescript.
+
+== 4. Sequencing
+
+[cols="1,4,3", options="header"]
+|===
+| Wave | Work | Gate
+
+| W0 - Decide
+| Owner resolves D1–D10 (section 7). Standards reconciles R1–R8 (companion file).
+| Decisions recorded in the repo (a short `docs/plans/DECISIONS-…` note).
+
+| W1 - Mechanical, no decision needed
+| SPDX headers on the 6 files. Reword `.github/settings.yml` comments. Remove the duplicate `funding.yml`. Fix Justfile identity (`project`/`REPO`) and version alignment. Fix `phase` and version in `STATE.a2ml`. Remove the 3 `vlang` hits. Add the missing root items that apply (G-ROOT-2, e.g. `CLAUDE.md`, `.gitmessage`, `.mailmap`). Add `.tool-versions`.
+| `must-spdx-headers`, `check-no-vlang`, `check-no-placeholders` (after the decided exemptions), `validate-state` passes.
+
+| W2 - Deed
+| Extend `proof-burrower_chora.deed` with the missing clauses (`rsr-profile`, `meta`, `agentic`, `neurosym`, `playbook`, `bot-directives`, `contractiles`, `manifest`, `ply` (when ruled), `anchor`, `ensaid`, `integrations`, `policies`). Each clause follows its mapping spec. Lint with `deed_lint.js` and the bun CI gate.
+| Deed lints; `validate-rsr` field checks pass for the clauses that exist.
+
+| W3 - Retire A2ML
+| Family by family, switch readers (`.machine_readable/scripts/`, `validate-*`) to the deed, then remove the A2ML. Start with the smallest family. `0-AI-MANIFEST` and the ply tree last.
+| `check-no-a2ml` passes. No reader references a removed file.
+
+| W4 - Gates and CI
+| Adopt the applicable template workflows (G-CI-6). Decide `rhodibot.yml` (D4). Capture the 2026-10-05 `proof-safety` logs and fix. Bump the echidna pin only after the contract is confirmed (D7).
+| `main` CI green. `proof-safety.yml` passes on the new pin.
+
+| W5 - Issues
+| #105 P1–P2 and #104 P1–P3 can start in parallel after W0. #105 P3 and #104 P4 wait on E-2. #84 follows D5.
+| Each phase's exit row in sections 3.1–3.3.
+|===
+
+Parallelism: W1 is independent of everything. W2 needs the mappings
+(already in standards). W3 needs W2 per family. The issue work in W5 touches
+only `crates/burrower-core` and does not depend on the repo tidy-up, so it can
+run alongside W1–W3 with separate PRs.
+
+== 5. Acceptance for this plan
+
+This plan is accepted when:
+
+* Every gap in section 2 has an ID, a current state, a target, and a wave.
+* #105, #104, and #84 each have a phased path, exit conditions, and the
+  acceptance criteria mapped to phases.
+* Each cross-repo hand-off in `CROSS-REPO-HANDOFFS-2026-10-09.adoc` names a
+  target repo, a bot or maintainer, an ask, and an acceptance test.
+* All owner decisions (section 7) are listed with a recommendation.
+* No file outside `docs/plans/` has been changed by this plan.
+
+== 6. Risks and unknowns
+
+* *Oracle not implemented.* Compliance is inferred. `hypatia:rsr-conformance`
+  (named in standards `docs/AFFIRMATION.adoc` and `docs/AUDIT.adoc`) does not
+  yet produce a tier score.
+* *`proof-safety.yml` run 37371572643 (2026-10-05)* failed with a cancelled job
+  and no logs. The cause is unknown.
+* *Upstream tension.* RSR criteria 2.1.0-draft require A2ML; the deed is the
+  format for new work. Until standards reconciles them, any A2ML removal is
+  premature.
+* *Ply mapping.* No ruled mapping. Ply content is referenced in
+  `meta-ecosystem-to-repo-deed.adoc` and `ai-manifest-decision.adoc`, and
+  `2-protocols/0-ai-gatekeeper/docs/AI-MANIFEST-SPEC.adoc` still describes ply
+  prefixes.
+* *Echidna stepwise contract absent.* Blocks #105 P3 and #104 P4.
+* *`timeout` and `unknown` untested end-to-end.* The echidna contract spec says
+  these statuses are covered only by golden unit tests (no backend without an
+  external prover produces them). echidnabot and Burrower both rely on them.
+* *Language policy vs ParadisEO.* C++ is not allowed. A Rust reimplementation
+  is slower to build than a binding, but no policy exception is assumed.
+* *Presence-proxy baseline* (section 1.1) is not a score.
+
+== 7. Owner decisions
+
+[cols="1,4,5", options="header"]
+|===
+| ID | Question | Recommendation
+
+| D1
+| `0-AI-MANIFEST` mapping: which option?
+| Option A (the mapping's recommended option). Ply left in place until ruled.
+
+| D2
+| Keep the root `Containerfile` and `container/`, or remove them?
+| Remove unless the CLI is to be shipped as a container. A CLI with no container use case should not claim the `container` capability. If kept, make it build the `burrower` binary.
+
+| D3
+| Rust-workspace allowlist entries (`Cargo.toml`, `Cargo.lock`, `crates/`, `rust-toolchain.toml`).
+| Standards adds gated `?` entries for Rust workspaces. Repo keeps the layout. No repo moves.
+
+| D4
+| `rhodibot.yml`: retire or remake?
+| Retire, and rebuild from the template gate that replaces it. It is 78% red.
+
+| D5
+| #84: transfer to `hyperpolymath/affinescript`, or close as misfiled?
+| Confirm misfiled, comment with the pointer, then transfer (keeps the acceptance criteria attached).
+
+| D6
+| `agents/*.007` licence (MPL-2.0 headers vs possible ARR)?
+| Owner checks the DSL licence before any header change.
+
+| D7
+| Bump the echidna pin in `proof-safety.yml` from `556d6468…` to current `main` (`822cfc9`) or any commit at or after `a71aa2c`?
+| Bump after the 2026-10-05 failure is diagnosed, so the cause is not confused with the pin change.
+
+| D8
+| `coordination.k9` vs `coordination.k9.ncl`?
+| Follow the template (`coordination.k9.ncl`) and rename, unless standards rules the other way.
+
+| D9
+| Benchmark lemma set for #105 P5.
+| Owner names the lemmas. Reuse the tropical-comparison set if it fits.
+
+| D10
+| Fitness weights w1…w4 and penalty matrix for #104.
+| Start with equal weights and calibrate on the tracked ledger. Owner signs off the values.
+|===
+
+== Appendix A. Source paths
+
+* Repo: `proof-burrower_chora.deed`, `Justfile`, `Containerfile`, `container/`,
+  `.github/workflows/proof-safety.yml`, `.github/workflows/dogfood-gate.yml`,
+  `crates/burrower-core/src/{attempt,ledger,serve}.rs`,
+  `crates/burrower-cli/src/main.rs`, `docs/ECHIDNA-INTEGRATION.adoc`,
+  `docs/experiments/2026-04-26-tropical-comparison/ledger.jsonl`.
+* Standards (`hyperpolymath/standards`): `0-canon/rsr/rsr-criteria-v2.a2ml`,
+  `0-canon/rsr/RSR-SPEC-v2.adoc`, `0-canon/TEMPLATE-APPLICABILITY-POLICY.adoc`,
+  `1-formats/deed/spec/abnf/deed.abnf`, `1-formats/deed/mappings/`,
+  `1-formats/deed/tools/deed_lint.js`, `.meta/REQUIRED-FILES.adoc`,
+  `scripts/check-rsr-profile.sh`, `docs/proofs/spec-templates/T2-high/gitbot-fleet.adoc`.
+* Template (`hyperpolymath/rsr-template-repo`): `.machine_readable/root-allow.txt`,
+  `rsr-template-repo_chora.deed` (worked model), `scripts/check-root-shape.sh`.
+* Echidna (`hyperpolymath/echidna`, `822cfc9`): `docs/PROVE-RESULT-CONTRACT.adoc`,
+  `src/interfaces/graphql/{resolvers,ffi_wrapper}.rs`, `src/rust/server.rs`,
+  `Cargo.toml` (2.3.0).
+* Echidnabot (`hyperpolymath/echidnabot`, `ac67dc3`): `src/dispatcher/echidna_client.rs`
+  (`MIN_ECHIDNA_VERSION` 2.3.0), `src/dispatcher/prove_result.rs`.
