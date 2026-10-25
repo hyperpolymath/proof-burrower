@@ -26,7 +26,7 @@ jobs:
           ref: 556d64687a8872026c81e4689ac3d574c7acc6ce
           path: _echidna
           persist-credentials: false
-      - uses: Swatinem/rust-cache@v2.9.2
+      - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
             . -> target
