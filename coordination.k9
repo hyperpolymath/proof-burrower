@@ -3,9 +3,15 @@ K9!
 # Declarative session policy data; this file does not execute checks.
 {
   pedigree = {
-    name = "proof-burrower-coordination",
-    version = "0.1.0",
-    leash = 'Kennel,
+    schema_version = "1.0.0",
+    component_type = "session:coordination-binding",
+    metadata = {
+      name = "proof-burrower-coordination",
+      version = "0.1.0",
+    },
+    security = {
+      leash = 'Kennel,
+    },
   },
   session_management = {
     source_of_truth = "standards/session-management-standards",

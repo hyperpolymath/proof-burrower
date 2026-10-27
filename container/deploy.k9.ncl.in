@@ -2,6 +2,13 @@ K9!
 # SPDX-License-Identifier: MPL-2.0
 # deploy.k9.ncl — Proof Burrower deployment component (Hunt level)
 #
+# Shipped as deploy.k9.ncl.in: it still carries the REGISTRY and
+# SERVICE_NAME brace tokens and no port, and a template is not a component
+# (K9 contract v1.0.0, D173). Render it to deploy.k9.ncl once those are
+# filled; the rendered file must then pass k9-validate.sh --strict --layer L2,
+# which needs the template's v1.0.0 pedigree (rsr-template-repo
+# build/container/stapeln/deploy.k9.ncl.in) and a signature block.
+#
 # k9-svc deployment specification with full pedigree (L1-L5).
 # Security Level: 'Hunt (requires cryptographic handshake for execution).
 #

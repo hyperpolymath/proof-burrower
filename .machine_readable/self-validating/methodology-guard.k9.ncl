@@ -10,9 +10,15 @@ K9!
 
 let methodology_guard = {
   pedigree = {
-    name = "methodology-guard",
-    version = "1.0.0",
-    leash = 'Kennel,
+    schema_version = "1.0.0",
+    component_type = "validator:methodology-guard",
+    metadata = {
+      name = "methodology-guard",
+      version = "1.0.0",
+    },
+    security = {
+      leash = 'Yard,
+    },
   },
   name = "methodology-guard",
   version = "1.0.0",
