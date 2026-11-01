@@ -154,7 +154,9 @@ impl ProofReconciliation {
                 if leg.outcome == LegOutcome::Checked && !leg.axioms.is_empty() {
                     return Err(format!("unchecked axioms in {expected:?} no-axiom claim"));
                 }
-                if leg.outcome == LegOutcome::CheckedWithAxioms && leg.axioms.is_empty() {
+                if leg.outcome == LegOutcome::CheckedWithAxioms
+                    && (leg.axioms.is_empty() || leg.axioms.iter().any(|a| a.trim().is_empty()))
+                {
                     return Err(format!("{expected:?} axiomatic claim names no axioms"));
                 }
                 if source_leg {
