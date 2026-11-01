@@ -50,7 +50,10 @@ pub use ledger::{
     RecordResult,
 };
 pub use ranking::{rank, Home};
-pub use reconciliation::{record_reconciliation, CheckLeg, Checker, Correspondence, LegOutcome, OriginalProof, ProofReconciliation, Route, RECONCILIATION_SCHEMA};
+pub use reconciliation::{
+    record_reconciliation, CheckLeg, Checker, Correspondence, LegOutcome, OriginalProof,
+    ProofReconciliation, Route, RECONCILIATION_SCHEMA,
+};
 pub use specialist::{
     Algebraist, Combinatorialist, ConsensusHome, OrderTheorist, Reading, Specialist, Swarm,
     Synthesis,
