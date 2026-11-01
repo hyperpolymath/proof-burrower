@@ -285,7 +285,12 @@ JSONL file, and the topology claims that implied otherwise have been
 narrowed.** The adapter seam is now a written precondition on any future
 backend work rather than a sketch:
 
-. `ledger::Ledger` remains the single write point. Nothing else appends.
+. `ledger::Ledger` is the intended single write point, not an enforced
+  guarantee. It is the only module in this codebase that appends, and
+  nothing else does — but the JSONL file carries no lock, so anything able
+  to open the path can write to it. Operators must serialise writers that
+  share a ledger path, and the re-validation in <<laundering>> is what stops
+  a non-conforming writer from laundering a claim through the seam.
 . A future backend is an implementation behind `Ledger`, selected by
   configuration; the JSONL file is the only one that exists.
 . The VeriSimDB backend, when it lands, goes through VCL / the Octad API
