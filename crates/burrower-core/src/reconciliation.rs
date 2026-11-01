@@ -30,6 +30,7 @@ pub enum LegOutcome {
 }
 
 impl LegOutcome {
+    /// Whether the leg claims a check, with or without axioms.
     fn checked(self) -> bool {
         matches!(self, Self::Checked | Self::CheckedWithAxioms)
     }
@@ -90,10 +91,12 @@ pub struct ProofReconciliation {
     pub lean: CheckLeg,
 }
 
+/// Whether a value is present and contains non-whitespace characters.
 fn filled(s: &Option<String>) -> bool {
     s.as_deref().is_some_and(|v| !v.trim().is_empty())
 }
 
+/// Whether a string has the shape of a SHA-256 digest in hexadecimal.
 fn sha256(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
@@ -103,6 +106,12 @@ impl ProofReconciliation {
     ///
     /// A successful validation is NOT a checked proof; callers must still
     /// authenticate the run references and check the referenced artefacts.
+    /// Unchecked or unavailable legs can pass validation without run evidence.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the first invalid schema, provenance, leg
+    /// route, run evidence, correspondence, axiom claim or Agda invocation.
     pub fn validate(&self) -> std::result::Result<(), String> {
         if self.schema != RECONCILIATION_SCHEMA {
             return Err("unsupported reconciliation schema".into());
@@ -188,6 +197,12 @@ impl ProofReconciliation {
 /// Append the *claim* to Burrower's existing interim JSONL ledger. The
 /// status remains "proposed": an imported receipt is not proof of execution.
 /// No second persistent database or new state store is introduced.
+/// `theorem_statement` supplies the ledger's goal identity and excerpt.
+///
+/// # Errors
+///
+/// Returns a validation error before appending if the receipt is invalid,
+/// or propagates an error from serialising or appending the ledger record.
 pub fn record_reconciliation(
     ledger: &Ledger,
     theorem_statement: &str,

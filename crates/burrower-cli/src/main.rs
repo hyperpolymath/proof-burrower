@@ -386,6 +386,9 @@ fn handle_attempt(
     Ok(())
 }
 
+/// Dispatch the requested command. Reconciliation reads a JSON receipt and
+/// records it as proposed evidence, propagating read, parse, validation and
+/// ledger errors.
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
