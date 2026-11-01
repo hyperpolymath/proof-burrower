@@ -571,6 +571,16 @@ corrected count.
  with it
 |this repo
 |`validate-template.sh` accuracy; unblocks the ABI-1..5 obligations
+
+|T-10
+|Make the `Proof Safety` job survive an Isabelle mirror outage. It is the
+ only job that runs a real prover over Burrower's output, and it currently
+ fails outright when both `isabelle.in.tum.de` and `www.cl.cam.ac.uk`
+ refuse the download, skipping `cargo test` and `tests/e2e.sh` in the
+ process. Cache the checksum-verified Isabelle artefact, or add a third
+ mirror
+|this repo
+|The estate's only real-prover gate must not depend on two live mirrors
 |===
 
 == Addendum, same day: what became verifiable
@@ -684,12 +694,36 @@ including the pre-existing `Properties.agda`.
 
 === Still unverified
 
-`cargo test`, `cargo clippy` and the 95% `llvm-cov` floor were **not** run:
-no Rust toolchain can be installed in this environment, and that has not
-changed. The Rust sources were checked for syntax and rustfmt conformance
-with the wasm rustfmt (16 of 16 files parse, 0 would reformat), which is
-weaker than a type-check and is not a substitute for CI. No Rust code was
-modified.
+`cargo clippy` and the 95% `llvm-cov` floor were **not** run here: no Rust
+toolchain can be installed in this environment, and that has not changed.
+The Rust sources were checked for syntax and rustfmt conformance with the
+wasm rustfmt (16 of 16 files parse, 0 would reformat), which is weaker than
+a type-check and is not a substitute for CI. No Rust code was modified.
+
+`cargo test --locked --workspace` *did* run, in CI, on this branch. The
+`Proof Safety` workflow reached commit `ca4bca3`, whose parent is `ceabd82`
+and so carries every substantive change described in this audit, and it
+completed both `Build ECHIDNA and run Burrower unit tests` (18:01:01Z to
+18:01:44Z) and `Require real accepted and rejected Isabelle goals`
+(18:01:44Z to 18:02:22Z). Only the documentation-only commit `a0e6c2d` has
+not been through that job.
+
+=== CI fragility, found while reading those runs
+
+The `Proof Safety` job — the only place in this repository where a real
+prover executes Burrower's output — failed twice on this branch at the
+`Install checksum-verified Isabelle` step, at 17:53:27Z and 18:04:08Z, and
+succeeded at 17:56:56Z in between. That step downloads Isabelle2025-2 from
+`isabelle.in.tum.de` with `www.cl.cam.ac.uk` as fallback, `--retry 2` and
+`--retry-max-time 660`; both failures gave up after roughly 64 seconds,
+which is refusal by both mirrors rather than a slow download. In both
+failures the `cargo test` step and `tests/e2e.sh` were **skipped**, so the
+job reported a red PR without having checked anything.
+
+The estate's only real-prover gate is therefore a coin toss on two upstream
+mirrors, and its failure mode is indistinguishable from a genuine proof
+regression. Recorded as T-10. The remedy is CI-side — a cached Isabelle
+artefact, or a third mirror — and not a change to anything proved here.
 
 == Provenance
 
