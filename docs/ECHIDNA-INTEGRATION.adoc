@@ -133,8 +133,9 @@ connection to a data store. Two normative statements carry the substance:
 
 proof-burrower is an agent in that sentence. Therefore:
 
-. **`ledger::Ledger` is the single write point.** Nothing outside this
-  process appends to a Burrow ledger, and the local JSONL file is the only
+. **`ledger::Ledger` is the intended single write point, not an enforced
+  guarantee.** The local JSONL file has no lock, so operators must serialise
+  all writers that use the same ledger path. It remains the only
   backend that exists.
 . **`burrower serve` is a local debugging affordance, not an integration
   surface.** It has no authentication and no peer-credential check; it is
