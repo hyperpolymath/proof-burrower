@@ -11,7 +11,10 @@
 //!   given a goal, return ranked candidate "homes".
 
 use anyhow::Result;
-use burrower_core::{parse_goal, rank, record_reconciliation, Corpus, Ledger, ProofReconciliation, ProverConfig, Swarm};
+use burrower_core::{
+    parse_goal, rank, record_reconciliation, Corpus, Ledger, ProofReconciliation, ProverConfig,
+    Swarm,
+};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -413,7 +416,11 @@ fn main() -> Result<()> {
                 oracle_julia,
             )
         }
-        Cmd::Reconcile { receipt, goal, ledger } => {
+        Cmd::Reconcile {
+            receipt,
+            goal,
+            ledger,
+        } => {
             let body = std::fs::read_to_string(&receipt)?;
             let evidence: ProofReconciliation = serde_json::from_str(&body)?;
             let ledger = Ledger::open(&ledger)?;
