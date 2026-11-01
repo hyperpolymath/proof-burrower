@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+= Proof Reconciliation Receipts
+:toc:
+
+Proof Burrower discovers candidate proof locations and can ask ECHIDNA to
+run a prover; neither a search hit nor a proposed tactic establishes that
+a theory theorem has been checked.
+
+Estate policy: https://github.com/metadatastician/standards/blob/main/3-practice/PROOF-POLICY.adoc[Proof and Verification Policy].
+
+== Interim theory reconciliation
+
+The canonical primary checker invocation is:
+
+[source,bash]
+----
+agda --safe --without-K --cubical-compatible path/to/Theorem.agda
+----
+
+Record each original proof and Agda conversion or re-proof, its stable
+theorem identity, source and target digests, checker version and exact
+command, assumptions, kernel result, and CI execution evidence.
+
+Rocq/Coq and Lean are distinct recheck legs. A transported witness is not
+independent evidence until the target kernel accepts it and the source and
+target statements (and assumptions) are compared. A fresh re-proof is a
+valid fallback, with the statement comparison recorded. Preserve all
+prior evidence on unsuccessful conversion; a translation failure never
+refutes a theorem.
+
+Proof status remains the estate's canonical closed vocabulary:
+`proven`, `proven-with-postulates`, `tested-only`, `argued`,
+`open`. The route and execution state of an individual leg are
+separate metadata, not new global status tokens.
+
+A checker that was not invoked is `open` (unavailable), not `proven`.
+Current Burrower attempts use Isabelle; they do not claim to run the
+Agda/Rocq/Lean reconciliation pipeline. ECHIDNA will eventually
+coordinate the full process; this record is an interim evidence format,
+not a second proof engine.
