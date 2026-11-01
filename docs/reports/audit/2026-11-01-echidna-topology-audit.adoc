@@ -90,8 +90,21 @@ Stated plainly, so no reader mistakes an unrun check for a pass:
   `bash tests/aspect_tests.sh` (one pre-existing FAIL: it greps
   `verification/proofs/README.adoc` for the *words* `sorry` and
   `Admitted`) and `bash scripts/validate-template.sh .` (one pre-existing
-  ERROR: `src/interface/abi` is absent). Neither is caused by, or
-  affected by, this change.
+  ERROR). Neither is caused by, or affected by, this change.
++
+The template ERROR is a *case mismatch, not a missing directory*, and the
+distinction matters enough to correct here. `scripts/validate-template.sh`
+line 105 checks for `src/interface/abi` and lines 193-195 expect
+`Types.idr`, `Layout.idr` and `Foreign.idr` inside it. The repository spells
+that directory `src/interface/Abi`, and all three files are present as real
+modules — `Abi.Types` (112 lines), `Abi.Layout` (128), `Abi.Foreign` (83) —
+with no `believe_me`, `really_believe_me`, `assert_total` or
+`%default partial` in any of them. The Idris2 ABI layer therefore exists and
+is not the stub its absence would suggest; the checker is looking for the
+wrong capitalisation. Fixing it is a one-line change on either side, but it
+settles a naming question (`Abi` versus `abi`) that also decides the module
+names and any import paths downstream, so it is recorded as T-9 rather than
+made unilaterally.
 
 [[current-behaviour]]
 == Finding A — what actually runs end to end
@@ -543,6 +556,16 @@ corrected count.
 |Refresh the canonical-standards paths in `docs/AUDIT.adoc`
 |this repo
 |Documentation accuracy
+
+|T-9
+|Settle `src/interface/Abi` versus `src/interface/abi`. The directory is
+ spelled `Abi` and holds three real modules; `scripts/validate-template.sh`
+ lines 105 and 193-195 look for `abi`, so the check errors out and the ABI
+ layer reads as missing when it is not. Fix the spelling on whichever side
+ is canonical and, if `Abi` stays, the module names and import paths move
+ with it
+|this repo
+|`validate-template.sh` accuracy; unblocks the ABI-1..5 obligations
 |===
 
 == Addendum, same day: what became verifiable
@@ -565,8 +588,10 @@ assumed:
 |Agda 2.7.0.1
 |*installed*
 |PyPI package `agda` (manylinux wheel). Its bundled-library directory was
- missing, so Agda's own `src/data/lib` was taken from the `v2.7.0.1` source
- tag via `codeload.github.com` and placed where the wheel expects it.
+ missing, so the builtin library that the `agda/agda` `v2.7.0.1` source tag
+ carries as `data/lib` under its own `src` was fetched via
+ `codeload.github.com` and placed where the wheel expects it. (This is the
+ *Agda* distribution's layout, not a directory in this repository.)
 
 |agda-stdlib 2.4
 |*installed*
