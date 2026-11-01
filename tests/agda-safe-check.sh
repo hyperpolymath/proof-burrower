@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
+# Tests scripts/agda-safe-check.sh with a fake Agda executable.
+# Checks the canonical safe Agda options, rejection of --with-K, and failure when the checker is missing.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
