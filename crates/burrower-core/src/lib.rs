@@ -34,6 +34,7 @@ pub mod ids;
 pub mod ledger;
 pub mod oracle;
 pub mod ranking;
+pub mod reconciliation;
 pub mod serve;
 pub mod specialist;
 
@@ -49,6 +50,7 @@ pub use ledger::{
     RecordResult,
 };
 pub use ranking::{rank, Home};
+pub use reconciliation::{record_reconciliation, CheckLeg, Checker, Correspondence, LegOutcome, OriginalProof, ProofReconciliation, Route, RECONCILIATION_SCHEMA};
 pub use specialist::{
     Algebraist, Combinatorialist, ConsensusHome, OrderTheorist, Reading, Specialist, Swarm,
     Synthesis,
