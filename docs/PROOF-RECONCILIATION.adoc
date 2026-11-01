@@ -38,3 +38,36 @@ Current Burrower attempts use Isabelle; they do not claim to run the
 Agda/Rocq/Lean reconciliation pipeline. ECHIDNA will eventually
 coordinate the full process; this record is an interim evidence format,
 not a second proof engine.
+
+== Recording a reconciliation claim
+
+The first consumer is a typed evidence claim, not an automatic checker.
+Its schema identifier is `proof.reconciliation/1`. To ingest an existing
+JSON receipt (with source/target SHA-256 digests, checker versions, run
+references, and the Agda, Rocq and Lean legs), run:
+
+[source,bash]
+----
+cargo run --locked -p burrower -- reconcile \
+  --receipt path/to/receipt.json \
+  --goal 'the original theorem statement' \
+  --ledger path/to/burrow-ledger.jsonl
+----
+
+The CLI validates the metadata shape and consistency and appends a record
+with status `proposed`. The caller remains responsible for authenticating
+checker executions and comparing statements and assumptions. Do not elevate
+this receipt to `proven` merely because the CLI accepted it.
+
+To check an Agda source with the mandated flags:
+
+[source,bash]
+----
+bash scripts/agda-safe-check.sh verification/proofs/agda/Properties.agda
+bash tests/agda-safe-check.sh
+----
+
+The second command tests the *wrapper* with an artificial checker and
+negative controls; it does not prove Properties.agda. The first command
+requires a real Agda binary and suitable installed libraries and fails
+closed if either is missing or incompatible.
