@@ -124,7 +124,10 @@ impl ProofReconciliation {
             }
             let source_leg = expected == Checker::Agda;
             let valid_route = if source_leg {
-                matches!(leg.route, Route::OriginalAgda | Route::Converted | Route::Reproved)
+                matches!(
+                    leg.route,
+                    Route::OriginalAgda | Route::Converted | Route::Reproved
+                )
             } else {
                 matches!(leg.route, Route::Transported | Route::Reproved)
             };
@@ -171,7 +174,9 @@ impl ProofReconciliation {
                     }
                 }
             } else if leg.correspondence == Correspondence::Verified && !source_leg {
-                return Err(format!("unchecked {expected:?} leg claims verified correspondence"));
+                return Err(format!(
+                    "unchecked {expected:?} leg claims verified correspondence"
+                ));
             }
         }
         Ok(())
@@ -197,7 +202,9 @@ pub fn record_reconciliation(
         approach: None,
         result: Some(RecordResult {
             status: "proposed".to_string(),
-            explanation: "Reconciliation evidence submitted; checker runs not authenticated by Burrower".into(),
+            explanation:
+                "Reconciliation evidence submitted; checker runs not authenticated by Burrower"
+                    .into(),
             artifacts: Vec::new(),
         }),
         learning: None,
@@ -210,8 +217,7 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    const DIGEST: &str =
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     fn checked(checker: Checker, route: Route, invocation: &str) -> CheckLeg {
         CheckLeg {
