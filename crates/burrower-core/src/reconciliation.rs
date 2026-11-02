@@ -180,6 +180,7 @@ impl ProofReconciliation {
                     if words.len() < 5
                         || !words[0].rsplit('/').next().is_some_and(|cmd| cmd == "agda")
                         || words[1..4] != ["--safe", "--without-K", "--cubical-compatible"]
+                        || words[4..].iter().any(|w| w.starts_with('-'))
                     {
                         return Err("Agda check missing canonical safe flags".into());
                     }
