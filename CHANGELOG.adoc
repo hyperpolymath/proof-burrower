@@ -7,3 +7,30 @@ Changelog], and this project adheres to
 https://semver.org/spec/v2.0.0.html[Semantic Versioning].
 
 === [Unreleased]
+
+==== Added
+
+* First-party Agda proofs at estate Grade 3: `Burrow/Trust.agda`
+  (receipt versus warrant, with a Kripke countermodel for the legacy
+  path) and `Burrow/Ledger.agda` (`no-launder` on the ledger read path).
+  Both are warning-free under `--safe`, under
+  `--safe --without-K --cubical-compatible`, and under `--safe --cubical`.
+* `docs/proof-debt.adoc`, required by the estate Trusted-Base Reduction
+  Policy, with the corrected escape-hatch count.
+* `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
+
+==== Changed
+
+* `docs/ECHIDNA-INTEGRATION.adoc` now separates implemented from proposed
+  work per item, and narrows four point-to-point proposals (EI-2's
+  `--burrower <socket>`, EI-3's direct ledger writer, EBI-2's S3/`vsdb://`
+  backend, BI-3's shared socket) behind the no-point-to-point ledger
+  invariant. EBI-3's numeric confidence threshold is replaced with a
+  receipt-backed rule.
+* `just proof-check-agda` uses the estate canonical Agda flags, passes an
+  include path, and reports warnings and errors instead of discarding them.
+
+==== Fixed
+
+* `ECOSYSTEM.a2ml` no longer claims `ijson-jcs` as a git dependency; the
+  JCS implementation is `serde_json_canonicalizer` 0.3 from crates.io.

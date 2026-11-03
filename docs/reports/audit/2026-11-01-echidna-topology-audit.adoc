@@ -1,0 +1,736 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= ECHIDNA Integration and Ledger Topology Audit
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+v1.0, 2026-11-01
+:toc:
+:toclevels: 3
+:sectnums:
+
+== Scope and method
+
+Audit scope:
+
+* What proof-burrower's ECHIDNA integration *actually does* at HEAD
+  (`39673264`), line by line, as distinct from what
+  `docs/ECHIDNA-INTEGRATION.adoc` proposes.
+* Whether the proposed ledger topology is compatible with the estate's
+  no-point-to-point VeriSimDB/VCL invariant.
+* Whether strict receipt validation survives that reconciliation.
+* Where the repository stands against the estate's graded-proof ladder,
+  and what is missing to reach *Grade 3*.
+
+Method: read the shipped Rust sources and the normative estate
+documents; no claim below rests on inference where a file could be
+opened instead. Every finding cites `file:line` in this repository or a
+path in an estate repository.
+
+Line numbers for `crates/**` are at HEAD and are unchanged by this work.
+Line numbers for `docs/ECHIDNA-INTEGRATION.adoc` are those of the
+*audited* revision `39673264`, because this audit is what prompted the
+edits to that file; they no longer resolve against the edited document,
+which is cross-referenced by section anchor instead.
+
+=== Normative frame
+
+The following are treated as normative for this audit:
+
+[cols="1,2,3"]
+|===
+|Source |Location |What it governs here
+
+|Estate Mathematical Knowledge Architecture (Mathesis)
+|`hyperpolymath/mathesis` → `estate-mathematical-architecture`, §5, §6, §8, §13
+|The Grade 3 / 2ii / 2i / 1 ladder; epistemic precision; agent
+ write-back; what may not count as corroboration.
+
+|Hyperpolymath Proof and Verification Policy
+|`metadatastician/standards` → `3-practice/PROOF-POLICY.adoc`
+ (owner ruling 2026-10-26)
+|Which prover carries which obligation; theory rechecking; the canonical
+ Agda invocation; the `ASSUMED` vs `PROVEN` rule.
+
+|Trusted-Base Reduction Policy
+|`metadatastician/standards` → `docs/TRUSTED-BASE-REDUCTION-POLICY.adoc`
+ (ADOPTED, 2026-05-27)
+|Escape-hatch tiers, the three dispositions, and the mandatory
+ `docs/proof-debt` file.
+
+|VCL vs SQL
+|`hyperpolymath/verisimdb` → `docs/vcl-vs-sql.adoc`
+|The preferred VeriSimDB write path (Octad API) and why a bare write
+ cannot express cross-modal invariants.
+
+|epistemic-types
+|`hyperpolymath/epistemic-types` @ `5422cd5`
+|The receipt/warrant (factive / non-factive) distinction. Copied as a
+ *pattern*; not a dependency, and it must not become one.
+|===
+
+=== What could not be verified in this environment
+
+Stated plainly, so no reader mistakes an unrun check for a pass:
+
+* **No Rust toolchain is present** (`cargo`, `rustc`: absent) and
+  `static.crates.io` is unreachable from this sandbox, so
+  `cargo test`, `cargo clippy` and the 95% `llvm-cov` floor were *not*
+  run. Every statement about Rust behaviour below comes from reading the
+  source, not from executing it.
+* The canonical text of the **no-point-to-point invariant itself** is not
+  in this repository (`grep -rn "VCL"` over the tree returns zero hits)
+  and a GitHub code search for its wording was rate-limited. Its
+  *substance* is corroborated by Mathesis §8 and by
+  `verisimdb/docs/vcl-vs-sql.adoc`, both of which are cited above; the
+  policy document that names it is not cited because it was not found.
+* Whether `verisimdb-client` is published on crates.io could not be
+  checked (crates.io unreachable). This matters and is flagged in
+  <<why-not-an-adapter-now>>.
+* The two repository checks that *are* runnable here were run, before and
+  after this change, with identical output:
+  `bash tests/aspect_tests.sh` (one pre-existing FAIL: it greps
+  `verification/proofs/README.adoc` for the *words* `sorry` and
+  `Admitted`) and `bash scripts/validate-template.sh .` (one pre-existing
+  ERROR). Neither is caused by, or affected by, this change.
++
+The template ERROR is a *case mismatch, not a missing directory*, and the
+distinction matters enough to correct here. `scripts/validate-template.sh`
+line 105 checks for `src/interface/abi` and lines 193-195 expect
+`Types.idr`, `Layout.idr` and `Foreign.idr` inside it. The repository spells
+that directory `src/interface/Abi`, and all three files are present as real
+modules — `Abi.Types` (112 lines), `Abi.Layout` (128), `Abi.Foreign` (83) —
+with no `believe_me`, `really_believe_me`, `assert_total` or
+`%default partial` in any of them. The Idris2 ABI layer therefore exists and
+is not the stub its absence would suggest; the checker is looking for the
+wrong capitalisation. Fixing it is a one-line change on either side, but it
+settles a naming question (`Abi` versus `abi`) that also decides the module
+names and any import paths downstream, so it is recorded as T-9 rather than
+made unilaterally.
+
+[[current-behaviour]]
+== Finding A — what actually runs end to end
+
+There is exactly one live integration with ECHIDNA and it is a one-shot
+subprocess. Three `Command::new` call sites exist in the whole of
+`crates/*/src`, and all three are accounted for:
+
+[cols="1,2,3"]
+|===
+|Call site |Invocation |Purpose
+
+|`attempt.rs:388` |`echidna prove <probe> --prover Isabelle -t <secs>`
+ plus optional `--project-root <p>`, `--sandbox <m>`, `--output json`
+ (`prove_command`, `attempt.rs:387-409`)
+|The proof attempt.
+
+|`echidna_contract.rs:196` |`echidna prove --help`
+|Capability detection, once per binary per process, cached in a
+ `Mutex<HashMap<PathBuf, OutputMode>>` (`echidna_contract.rs:166-169`).
+
+|`oracle.rs:99` |`julia [--project=P] <script> <descriptor>`
+|The optional tropical-types pre-proof oracle.
+|===
+
+Consequences, all verified in source:
+
+* **No socket, no network, no storage client is involved in the proof
+  path.** There is no `TcpStream`, no `reqwest`, no `tokio`, and no
+  `async fn` anywhere in `burrower-core/src`. The only
+  `UnixStream::connect` in the crate is inside a test
+  (`serve.rs:302`).
+* **Capability detection is conservative.** `detect_output_mode`
+  (`echidna_contract.rs:188`) enters contract mode only when `--output`
+  appears as a *whole* option token in `prove --help`
+  (`help_advertises_output`, `:176`), so `--output-dir` does not
+  accidentally opt a binary in. A binary that advertises the flag and
+  then rejects it is demoted once and remembered
+  (`run_probe`'s retry loop, `attempt.rs:342-363`;
+  `rejected_output_flag`, `echidna_contract.rs:239`).
+* **Strict receipt validation is intact.** `parse_prove_result`
+  (`echidna_contract.rs:129`) requires: exactly one line; a successful
+  I-JSON parse; **byte equality with its own RFC 8785 canonical form**,
+  computed by `serde_json_canonicalizer`; an exact `schema` match against
+  `echidna.prove.result/1` (`:39`); and the full field shape via serde.
+  Byte equality is what enforces the I-JSON limits a parser alone will
+  not — a duplicate key collapses to one member and an integer past
+  ±(2^53−1) re-serialises differently, so both fail as non-canonical
+  (`:139-146`). A violation becomes `AttemptResult::Failed` carrying
+  "contract violation" and is **never re-read as text**
+  (`interpret_contract`, `attempt.rs:417-462`). `verified` with a
+  non-zero exit also fails: failure evidence wins.
+* **The legacy path is genuinely a fallback, and it is labelled.** A
+  success read from text markers carries `receipt: None`
+  (`interpret_legacy`, `attempt.rs:464`) and the ledger explanation says
+  so in words: "legacy text markers: a warrant, not a receipt"
+  (`explain`, `attempt.rs:610-638`).
+* **`burrower serve` (BI-1) is implemented** — `serve.rs:112` binds a
+  `UnixListener`, refuses an occupied path, `run` (`:133`) is
+  thread-per-connection, `dispatch` (`:185`) accepts
+  `ping|swarm|attempt|ledger`. It has **no authentication and no peer
+  credential check** (no `SO_PEERCRED` anywhere in the file). It is an
+  *inbound* endpoint: nothing in this repository dials it, and no
+  echidna or echidnabot client calls it.
+
+=== The live CI path exercises the legacy branch
+
+`.github/workflows/proof-safety.yml` checks out `hyperpolymath/echidna`
+at `556d64687a8872026c81e4689ac3d574c7acc6ce`, builds it, and runs
+`tests/e2e.sh`, which runs `live_isabelle.rs --ignored` against real
+Isabelle. That pin predates `--output json`. So the *only* end-to-end
+proof run in CI goes through `interpret_legacy`, and the contract path —
+including every receipt rule above — is covered **only by fake
+binaries** in `attempt::tests` and `echidna_contract::tests`. The
+repository already says this (`docs/status/TEST-NEEDS.adoc:33-34`,
+`docs/status/ROADMAP.adoc:22`); it is restated here because it is the
+single largest gap between "implemented" and "demonstrated".
+
+=== The receipt is written and never read
+
+`receipt_extra` (`attempt.rs:589`) stores the receipt at
+`extra.receipt` and `run_playbook` writes it. **No production code path
+ever reads it back.** `Ledger::read_all` (`ledger.rs:133`) deserialises
+each line and skips malformed ones; `extra` is an opaque
+`serde_json::Value` (`ledger.rs:63`). Receipts are, today, write-only.
+This is harmless while Burrower is the sole writer and becomes a
+soundness hole the moment it is not — see <<laundering>>.
+
+[[topology]]
+== Finding B — planned topology vs the no-point-to-point invariant
+
+`docs/ECHIDNA-INTEGRATION.adoc` is candid that most of it is planned,
+but four of its proposals describe point-to-point wiring that the
+estate's shared-data-plane model rules out. None of them is implemented;
+all four would violate the invariant if built as written.
+
+[cols="1,3,3"]
+|===
+|Proposal |As written |Conflict
+
+|EI-2 (`:262`, `:269`)
+|`echidna suggest <file>:<lemma> [--burrower <socket>]` — "send the goal
+ to the Burrower swarm; receive back ranked candidate homes"
+|echidna dials a Burrower socket: a repo↔repo point-to-point channel.
+
+|BI-1 (`:404`)
+|"ECHIDNA's `--burrower` flag and echidnabot's swarm-findings hook both
+ consume this socket"
+|Same channel, described as the intended integration surface.
+
+|BI-3 (`:428`)
+|"Both write to the *same* ledger via a shared socket"
+|Point-to-point *and* a second writer, contradicting
+ `ledger.rs:95` ("One writer; many readers") and `ledger.rs:17` ("No
+ locking yet — single writer assumed").
+
+|EBI-2 (`:361-370`)
+|`backend = "verisimdb"  # or "s3" or "local"` with
+ `url = "vsdb://swarm/burrow-ledger"`
+|A per-repo client talking straight to a data store, past VCL. `s3` is
+ not a VeriSimDB modality store at all, so "or s3" offers an
+ uncontrolled bypass as a peer option.
+
+|EI-3 (`:292-315`)
+|ECHIDNA appends `LedgerRecord`s to a configured file path
+|A second process appending to a file with no locking and no
+ read-path validation — see <<laundering>>.
+|===
+
+=== What the estate actually requires instead
+
+Two estate documents carry the substance of the invariant, and they agree
+in direction:
+
+* `verisimdb/docs/vcl-vs-sql.adoc` — "VCL's **preferred** write path is
+  the Octad API (Rust core or Elixir orchestration layer), not the
+  language. VeriSimDB treats writes as coordinated multi-modal
+  operations that must maintain consistency across all eight modality
+  stores … a bare `INSERT` cannot by itself express the cross-modal
+  invariants an octad write requires." The Octad API is
+  `POST /api/octads`, `PUT /api/octads/:id`, `DELETE /api/octads/:id`.
+* Mathesis §8 — "Agents must not have direct write-access to mutate the
+  canonical SQLite index. Provide a strict 'write-back' or 'nomination'
+  API where agents can submit discovered broken links, missing
+  verification receipts, or false positives for human or CI-gated
+  review."
+
+proof-burrower is an agent in that sentence. So the ledger's
+cross-repository exchange must be a *nomination into a shared layer*,
+not a socket between two repositories and not a private S3 bucket.
+
+[[why-not-an-adapter-now]]
+=== Why this change narrows the claim instead of writing the adapter
+
+The reconciliation had two permitted shapes: route through a
+backend-specific VCL adapter, or narrow the topology claim. Narrowing was
+chosen, for reasons that are themselves findings:
+
+* The only VCL Rust surface in the estate is `verisimdb-client` v0.1.0
+  (`hyperpolymath/verisimdb/connectors/clients/rust`), whose
+  `execute_vcl` / `explain_vcl` are `async fn` over `reqwest`, and whose
+  `Cargo.toml` pulls `tokio = { version = "1", features = ["full"] }`.
+  `burrower-core` has **no async runtime by explicit design**
+  (`serve.rs:27-31`: "burrower-core has no async runtime today … spawning
+  a std thread per accepted connection is cheaper than pulling in
+  tokio"), and it is compiled to `wasm32-unknown-unknown` by
+  `burrower-wasm`, where neither tokio nor reqwest works. Adopting the
+  client as-is would break one of the two.
+* Whether that crate is published on crates.io is **unverified here**.
+  If it is git-only, the blocker this repository already documents for
+  `ijson-jcs` applies verbatim (`docs/ECHIDNA-INTEGRATION.adoc`,
+  §prove-result-contract): "the estate crate … is private and this
+  repository is public (a git dependency on it cannot be fetched by CI
+  or by anyone who downloads the repo)".
+
+So the honest state is: **there is no ledger backend other than the local
+JSONL file, and the topology claims that implied otherwise have been
+narrowed.** The adapter seam is now a written precondition on any future
+backend work rather than a sketch:
+
+. `ledger::Ledger` is the intended single write point, not an enforced
+  guarantee. It is the only module in this codebase that appends, and
+  nothing else does — but the JSONL file carries no lock, so anything able
+  to open the path can write to it. Operators must serialise writers that
+  share a ledger path, and the re-validation in <<laundering>> is what stops
+  a non-conforming writer from laundering a claim through the seam.
+. A future backend is an implementation behind `Ledger`, selected by
+  configuration; the JSONL file is the only one that exists.
+. The VeriSimDB backend, when it lands, goes through VCL / the Octad API
+  — never a direct modality-store connection and never S3.
+. Receipts cross that seam unchanged and are re-validated on read
+  (<<laundering>>).
+. Publication into Mathesis is a *nomination*, per Mathesis §8, carrying
+  the fields §6 requires (<<grading>>).
+
+[[laundering]]
+=== Receipt laundering: the hole the planned topology would open
+
+Because `read_all` validates nothing in `extra`, any *second* writer —
+EI-3's echidna writer, an EBI-2 upload/download round trip, or a
+hand-edited ledger — can make a record that *looks* receipt-backed. A
+consumer that trusts `extra.receipt` on sight would then report a
+receipt for a proof nobody checked. Today this is latent; the planned
+topology makes it live.
+
+Requirement recorded for whoever builds the seam, and now stated in
+`docs/ECHIDNA-INTEGRATION.adoc`:
+
+* A record read from anywhere other than a same-process
+  `ProofReceipt::from_result` is a **claim**, not a receipt.
+* Before a read record counts as receipt-backed, re-validate its shape
+  against the contract and **re-derive `result_id`** with
+  `ids::content_id` over the receipt's contract fields; a mismatch means
+  the payload was altered in transit or in storage.
+* A record that fails either check is demoted to a warrant, and the
+  demotion is recorded rather than silently dropped.
+
+This is the same rule PROOF-POLICY §2.1 applies to proofs — "Prior
+`--safe` … successes are historical evidence, not receipts for this new
+combined profile" — applied to transported evidence.
+
+[[grading]]
+== Finding C — graded-proof posture, and the distance to Grade 3
+
+Mathesis §5 defines the ladder. Grade 3 is the *entry* rung:
+
+[quote, estate-mathematical-architecture §5]
+____
+*Grade 3 (Iterative & Tentative Formulation):* Prototyped and iteratively
+constructed in Agda. This relies on strict solver flags (e.g., `--safe
+--erasure`) or topological geometry (e.g., Full `--cubical` for
+knot/Conway problems). A proof is Grade 3 if it type-checks locally in
+Agda but has not been translated to an independent foundational system.
+____
+
+Measured against that and against `3-practice/PROOF-POLICY.adoc`:
+
+[cols="2,2,3"]
+|===
+|Obligation |State at HEAD |Evidence
+
+|A first-party Agda theorem that type-checks locally (the Grade 3
+ condition)
+|**Absent**
+|`verification/proofs/agda/Properties.agda` is the RSR template: its own
+ header says "Agda Proof Template … Replace with your project's
+ domain-specific proofs", and the bodies are `append-length` and
+ `suc-monotone` over `Data.List`. Nothing about Burrower is proved.
+
+|Proof-status bookkeeping
+|**0 of 7 done, "0% proven"**
+|`docs/status/PROOF-STATUS.adoc` summary table.
+
+|Creusot contracts on first-party Rust (PROOF-POLICY §1: "Rust code →
+ Creusot")
+|**Absent**
+|No `creusot` dependency in `Cargo.toml` or `Cargo.lock`; no `#[requires]`
+ / `#[ensures]` in `crates/`.
+
+|Idris2 ABI proofs
+|**Scaffolding only**
+|`verification/proofs/idris2/ABI/*.idr` are template stubs; PROOF-STATUS
+ lists ABI-1..5 as `Needed`. `docs/ARCHITECTURE.adoc` concedes
+ `src/interface/` "is not yet connected to the Rust crates".
+
+|`docs/proof-debt` file
+|**Missing** (added by this change)
+|Required by Trusted-Base-Reduction-Policy ("Every proof-bearing repo
+ MUST maintain a `docs/proof-debt.md` (or `.adoc`)"); the repo's own
+ `docs/tech-debt-2026-05-26.adoc` §1 already recommends creating it.
+
+|`CLAUDE.md` pointing at the proof policy
+|**Missing** (added by this change)
+|PROOF-POLICY: "Every hyperpolymath repository follows this file, and the
+ repositories' `CLAUDE.md` files point here."
+|===
+
+=== The receipt carries the wrong fields for the ladder
+
+`ProofReceipt` (`attempt.rs:108-124`) is `schema`, `prover`, `axioms`,
+`confidence`, `echidna_version`, `result_id`. Mathesis §6 requires more
+than that of anything it will index:
+
+* "**Do not flatten proof confidence into a percentage.** Record exactly
+  whether a result is Open, Claimed, Grade 3, Grade 2i/ii, or Grade 1."
+  There is **no grade field**. `confidence: Option<f64>` is transported
+  and is `null` unless echidna has a receipt-backed figure, so nothing is
+  flattened *today* — but the field is the invitation, and EBI-3
+  (`:377-396`) takes it: "Confidence threshold: configurable, defaults to
+  **0.8** … auto-open a PR with the suggested edit." That is a percentage
+  driving an edit on `main`, and Mathesis §13 also forbids the
+  corroboration it assumes: "Do not allow agent-generated evidence to
+  count as independent corroboration."
+* "Mathesis must track the exact Git commit hash of the verification
+  receipt." `echidna_version` is a **version string, not a commit hash**.
+  The one place this repository does pin a commit is CI
+  (`proof-safety.yml`, `556d6468…`), and that pin never reaches the
+  receipt.
+* Axiom tracking is present (`trust.axioms`) but is not mapped onto the
+  Trusted-Base-Reduction dispositions — (a) DISCHARGED, (b) BUDGETED
+  (`// TRUSTED: <kind>; <budget>`), (c) NECESSARY AXIOM
+  (`-- AXIOM: <name>; <justification>`). An unclassified axiom in a
+  receipt is exactly the "unfalsifiable 'covered by tests'" the policy
+  warns about.
+* No `Superseded` / `Regressed` status exists anywhere, though Mathesis
+  §6 requires both.
+
+Burrower's Isabelle results are on the estate's **Engineering Path**
+(Mathesis §3), not the Theory Path, and a Grade 1 claim requires the
+verified-checker-API route (isabelle server instances, AXLE, coq-lsp).
+Burrower shells out to `echidna prove`; whether that satisfies Grade 1 is
+echidna's property, not Burrower's. **Burrower must therefore record the
+grade it was told and never assert one it derived.**
+
+=== A real correction to the proof-debt count
+
+`docs/tech-debt-2026-05-26.adoc` §1 reports `Idr-blv = 6`. All six are
+false positives: `grep -rn "believe_me" verification/ src/` returns six
+lines, and every one is a *comment* reading "no `believe_me`, no
+`assert_total`" (e.g. `verification/proofs/idris2/ABI/Pointers.idr:6`),
+plus one in `verification/proofs/README.adoc:45` listing the banned
+pattern. There are **zero** real escape hatches in this repository. The
+same prose-grepping failure that Trusted-Base-Reduction-Policy retired
+for `TODO` applies here. The new `docs/proof-debt.adoc` records the
+corrected count.
+
+[[inconsistencies]]
+== Finding D — documents that contradict the code or themselves
+
+[cols="2,3,2"]
+|===
+|Claim |Reality |Action
+
+|`docs/ECHIDNA-INTEGRATION.adoc:527` — "The remaining six items (EI-3,
+ EBI-2, EBI-3, **BI-1**, BI-2, BI-3) are forward-looking"
+|BI-1 is implemented (`serve.rs`), as the same document says at `:64`
+|Fixed
+|`docs/ECHIDNA-INTEGRATION.adoc:69` — "Everything else in this document
+ from EI-2 onward is **planned**"
+|BI-1 appears after EI-2 and is not planned
+|Replaced by an explicit per-item status table
+|`docs/ECHIDNA-INTEGRATION.adoc:62` — EI-1 and `--sandbox` "are
+ implemented **on both sides**"
+|Burrower's side is real (`prove_command`, tested by
+ `process_contract.rs:74-100`). echidna's acceptance of the flags is not
+ observable from this repository
+|Narrowed to what is checkable here
+|`.machine_readable/descriptiles/ECOSYSTEM.a2ml` — `ijson-jcs` is a "git
+ dependency pinned by rev"
+|`crates/burrower-core/Cargo.toml` depends on
+ `serde_json_canonicalizer = "0.3"` from crates.io; `Cargo.lock:538`
+ confirms, and `ijson-jcs` appears nowhere in the lockfile
+|Fixed
+|`docs/status/ROADMAP.adoc` — "Not done: … UUIDv7 ids";
+ v0.1.0 item "ISO 8601 timestamps and UUIDv7 ledger ids"
+|`ids.rs` already mints UUIDv7 record ids and UUIDv8 goal content ids,
+ and `ledger::new_id` is an alias. The *timestamps* half is still true:
+ `now_iso` returns `epoch:<seconds>` (`ledger.rs`)
+|Split: ids marked done, timestamps still open
+|`docs/SWARM-DESIGN-MEANDER.adoc:332` — "A shared Burrow Ledger
+ persisted in VeriSimDB"
+|Unqualified; reads as a direct connection
+|Qualified with the adapter and nomination requirements
+|`docs/AUDIT.adoc` canonical-standards list cites
+ `standards/component-readiness-grades/…`,
+ `standards/release-pre-flight/V1-GATE.adoc`,
+ `standards/publication-pre-flight/PREFLIGHT.adoc`
+|The standards repository is now organised under `0-canon/` and
+ `3-practice/`; those top-level paths were not found
+|Recorded here; **not** edited, to keep this change reviewable. Follow-up.
+|===
+
+== Decisions taken in this change
+
+. **Narrowed, not implemented.** The topology claim is now scoped to what
+   exists: a local single-writer JSONL ledger, plus an unauthenticated
+   same-host Unix socket that no estate component uses. The VCL/Octad
+   adapter is recorded as a precondition on future backend work, with the
+   two blockers that stopped it being written now.
+. **Receipt validation retained and extended forward.** Nothing in
+   `echidna_contract.rs` or `attempt.rs` was weakened — the byte-equality,
+   schema-exactness, shape and failure-evidence-wins rules are untouched
+   and remain the only way a receipt is created. The read-path
+   re-validation rule is written down as a requirement on the seam, not
+   implemented, because implementing it would mean shipping Rust that
+   cannot be compiled or tested in this environment.
+. **Grade posture stated rather than improved by assertion.**
+   `docs/proof-debt.adoc` was created, `CLAUDE.md` now names
+   `PROOF-POLICY.adoc` as normative, and the roadmap carries the Grade 3
+   obligations. No document now claims a grade the repository has not
+   earned; per Mathesis §11 the unresolved evidence is reported plainly.
+. **epistemic-types stays a pattern.** `5422cd5` adding real Kripke
+   semantics for the factive/non-factive split is a reason to *re-read*
+   the receipt/warrant distinction, not to take a dependency: the crate
+   is Agda, this workspace is Rust plus wasm32, and the audit gate in
+   `docs/AUDIT.adoc` forbids release claims that outrun their artefacts.
+
+== Actions
+
+[cols="1,3,2,2"]
+|===
+|ID |Action |Owner |Blocks
+
+|T-1
+|Move the `proof-safety.yml` echidna pin to a contract-speaking echidna so
+ CI exercises `interpret_contract` against real Isabelle instead of only
+ fake binaries
+|this repo + `echidna` (hand-off E-1)
+|Any live receipt claim
+
+|T-2
+|Add `grade`, `source_commit` and `stdlib_pin` to the receipt vocabulary
+ when `echidna.prove.result/2` is cut; do **not** widen `/1`
+|`echidna` + this repo
+|Mathesis indexing of Burrower results
+
+|T-3
+|Implement read-path receipt re-validation (shape + `ids::content_id`
+ re-derivation, demote-on-mismatch) **before** any second ledger writer
+ exists
+|this repo
+|EI-3, EBI-2, BI-3
+
+|T-4
+|Define the `LedgerBackend` seam and its VCL/Octad implementation;
+ resolve whether `verisimdb-client` can be depended on from a public repo,
+ and whether `burrower-core` gains an async runtime or a blocking bridge
+|this repo + `verisimdb`
+|Any non-local ledger
+
+|T-5
+|Write the first first-party Agda theorem (candidate: JCS-canonical
+ acceptance is decidable, or `extract_statement` preserves the
+ conclusion) and type-check it with
+ `agda --safe --without-K --cubical-compatible`; pin and record the Agda
+ and stdlib versions. This is the whole of the Grade 3 step
+|this repo
+|Grade 3
+
+|T-6
+|Add Creusot contracts to `echidna_contract::parse_prove_result` and
+ `serve::SocketGuard` — the two places where a wrong answer is a soundness
+ failure
+|this repo
+|PROOF-POLICY §1 compliance for Rust
+
+|T-7
+|Reclassify EBI-3: drop the 0.8 numeric threshold in favour of a grade-
+ and receipt-based rule, and keep auto-PRs off by default
+|`echidnabot` + this repo
+|Mathesis §6, §13
+
+|T-8
+|Refresh the canonical-standards paths in `docs/AUDIT.adoc`
+|this repo
+|Documentation accuracy
+
+|T-9
+|Settle `src/interface/Abi` versus `src/interface/abi`. The directory is
+ spelled `Abi` and holds three real modules; `scripts/validate-template.sh`
+ lines 105 and 193-195 look for `abi`, so the check errors out and the ABI
+ layer reads as missing when it is not. Fix the spelling on whichever side
+ is canonical and, if `Abi` stays, the module names and import paths move
+ with it
+|this repo
+|`validate-template.sh` accuracy; unblocks the ABI-1..5 obligations
+
+|T-10
+|Make the `Proof Safety` job survive an Isabelle mirror outage. It is the
+ only job that runs a real prover over Burrower's output, and it currently
+ fails outright when both `isabelle.in.tum.de` and `www.cl.cam.ac.uk`
+ refuse the download, skipping `cargo test` and `tests/e2e.sh` in the
+ process. Cache the checksum-verified Isabelle artefact, or add a third
+ mirror
+|this repo
+|The estate's only real-prover gate must not depend on two live mirrors
+|===
+
+== Addendum, same day: what became verifiable
+
+This audit was written with no toolchain available. Later the same day
+part of that changed, and the parts that did are recorded here rather than
+folded into the findings above, so the original assessment stays readable
+as a point-in-time record.
+
+=== Toolchains: what installed and what did not
+
+Every distribution channel for compiled toolchains except PyPI and npm is
+blocked at the TLS layer by the sandbox's egress allowlist. Probed, not
+assumed:
+
+[cols="2,1,3"]
+|===
+|Toolchain |State |How it was reached, or why not
+
+|Agda 2.7.0.1
+|*installed*
+|PyPI package `agda` (manylinux wheel). Its bundled-library directory was
+ missing, so the builtin library that the `agda/agda` `v2.7.0.1` source tag
+ carries as `data/lib` under its own `src` was fetched via
+ `codeload.github.com` and placed where the wheel expects it. (This is the
+ *Agda* distribution's layout, not a directory in this repository.)
+
+|agda-stdlib 2.4
+|*installed*
+|`codeload.github.com/agda/agda-stdlib`, tag `v2.4`.
+
+|`just` 1.59.0
+|*installed*
+|PyPI package `rust-just` (manylinux wheel). This let the repository's own
+ `proof-check-agda` target be run rather than a hand-rolled equivalent.
+
+|Zig 0.17.0
+|*installed*
+|PyPI package `ziglang` (manylinux wheel).
+
+|rustfmt / rustc parser
+|*available*
+|npm `@scalar/rust-fmt` (rustfmt as wasm). Parses and formats; does not
+ type-check.
+
+|Rust, cargo, Creusot
+|*not installable*
+|`static.rust-lang.org`, `static.crates.io` and `index.crates.io` all fail
+ with `tls handshake eof`. rustup 1.29.0 does install (PyPI
+ `konstin/rustup-pypi`) and fails at the dist server. Creusot additionally
+ needs `nightly-2026-08-03` with `rustc-dev` and `llvm-tools`, plus opam
+ and Why3.
+
+|Lean 4, Rocq/Coq, Idris2, Why3, Julia
+|*not installable*
+|GitHub release *assets* are served from `release-assets.githubusercontent.com`,
+ which is blocked even though `github.com` and `codeload` are not. PyPI's
+ `lean4`, `lean`, `pylean`, `julia`, `opam`, `ghc` and `cabal` are
+ placeholders or bridges, not toolchains.
+|===
+
+The PyPI simple index was searched exhaustively (927,915 packages) for a
+Rust or proof-assistant toolchain; the only real hits are the ones above.
+
+=== Consequence: two results moved from debt to Grade 3
+
+With Agda working, the semantic rewrite the audit called for in T-5 was
+written and checked rather than merely specified:
+
+* `verification/proofs/agda/Burrow/Trust.agda` — receipt versus warrant.
+  A receipt is a *validated warrant*, not a second kind of object; a
+  Kripke countermodel shows the legacy marker has no soundness witness, so
+  `no-legacy-receipt` is a theorem and not a policy.
+* `verification/proofs/agda/Burrow/Ledger.agda` — the read path.
+  `no-launder` proves there is no function from a stored ledger record to
+  the fact, which is the formal reason <<laundering>> is a rule rather than
+  a convention.
+
+Both follow `hyperpolymath/epistemic-types` (`5422cd5`): `Warrant` with no
+`Evidence → A` field, `SoundWarrant` as the separate assumption, and a
+two-world frame in the style of `EpistemicTypes.Kripke.Belief`. Copied as
+a pattern, not imported.
+
+Both check under `--safe`, `--safe --without-K --cubical-compatible` (the
+estate canonical invocation) and `--safe --cubical`, with **zero warnings**
+in all three. That last one matters for T-5's successor: nothing here
+relies on K, so the Dedukti legs into Rocq and Lean are not blocked by the
+proofs themselves.
+
+`just proof-check-agda` passes on all three modules in the directory,
+including the pre-existing `Properties.agda`.
+
+=== Two changes that the toolchain forced
+
+* `Justfile` `proof-check-agda` could not check the new modules as it
+  stood: it passed no include path, so Agda rejected the module name
+  (`Burrow.Trust` in `Burrow/Trust.agda`) with exit 42, and it used bare
+  `--safe` rather than the estate's canonical flags. It also discarded
+  stderr with `2>/dev/null`, which is why the failure was invisible. It now
+  passes `-i verification/proofs/agda`, uses
+  `--safe --without-K --cubical-compatible`, surfaces warnings, prints the
+  error on failure, and removes the `*.agdai` files it generates.
+  `*.agdai` is now ignored.
+* Zig found a defect no existing check looks for: `zig test
+  src/interface/ffi/src/main.zig` fails with `error: expected '(', found
+  '{'` because the file still contains 17 unexpanded RSR template
+  placeholders (`export fn {{project}}_init() …`). Nothing in CI or the
+  Justfile compiles it. Recorded in `docs/proof-debt.adoc` and on the
+  roadmap; not fixed here, because instantiating or deleting it is an
+  owner decision about the FFI layer.
+
+=== Still unverified
+
+`cargo clippy` and the 95% `llvm-cov` floor were **not** run here: no Rust
+toolchain can be installed in this environment, and that has not changed.
+The Rust sources were checked for syntax and rustfmt conformance with the
+wasm rustfmt (16 of 16 files parse, 0 would reformat), which is weaker than
+a type-check and is not a substitute for CI. No Rust code was modified.
+
+`cargo test --locked --workspace` *did* run, in CI, on this branch. The
+`Proof Safety` workflow reached commit `ca4bca3`, whose parent is `ceabd82`
+and so carries every substantive change described in this audit, and it
+completed both `Build ECHIDNA and run Burrower unit tests` (18:01:01Z to
+18:01:44Z) and `Require real accepted and rejected Isabelle goals`
+(18:01:44Z to 18:02:22Z). Only the documentation-only commit `a0e6c2d` has
+not been through that job.
+
+=== CI fragility, found while reading those runs
+
+The `Proof Safety` job — the only place in this repository where a real
+prover executes Burrower's output — failed twice on this branch at the
+`Install checksum-verified Isabelle` step, at 17:53:27Z and 18:04:08Z, and
+succeeded at 17:56:56Z in between. That step downloads Isabelle2025-2 from
+`isabelle.in.tum.de` with `www.cl.cam.ac.uk` as fallback, `--retry 2` and
+`--retry-max-time 660`; both failures gave up after roughly 64 seconds,
+which is refusal by both mirrors rather than a slow download. In both
+failures the `cargo test` step and `tests/e2e.sh` were **skipped**, so the
+job reported a red PR without having checked anything.
+
+The estate's only real-prover gate is therefore a coin toss on two upstream
+mirrors, and its failure mode is indistinguishable from a genuine proof
+regression. Recorded as T-10. The remedy is CI-side — a cached Isabelle
+artefact, or a third mirror — and not a change to anything proved here.
+
+== Provenance
+
+Written 2026-11-01 on branch `arena/4fb489bc-proof-burrower` from
+`39673264`. Estate documents read through the GitHub contents API on the
+same date: `hyperpolymath/mathesis` (`estate-mathematical-architecture`),
+`metadatastician/standards` (`3-practice/PROOF-POLICY.adoc`,
+`docs/TRUSTED-BASE-REDUCTION-POLICY.adoc`), `hyperpolymath/verisimdb`
+(`docs/vcl-vs-sql.adoc`, `docs/vcl-architecture.adoc`,
+`connectors/clients/rust/{Cargo.toml,src/vcl.rs}`).
