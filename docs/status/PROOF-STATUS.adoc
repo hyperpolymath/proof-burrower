@@ -11,19 +11,47 @@
 |Security (SEC) |0 |0 |0 |0 |0
 |Concurrency (CONC) |0 |0 |0 |0 |0
 |Algorithm (ALG) |0 |0 |0 |0 |0
-|Domain (DOM) |0 |0 |0 |0 |0
-|*Total* |*7* |*0* |*0* |*0* |*7*
+|Domain (DOM) |7 |2 |0 |0 |5
+|*Total* |*14* |*2* |*0* |*0* |*12*
 |===
 
-*Overall*: 0% proven
+*Overall*: 2 of 14 tracked obligations proven.
+
+Estate grade (`hyperpolymath/mathesis` §5): the two Domain proofs are
+*Grade 3* — constructed in Agda and type-checked locally, not yet
+translated to an independent foundational system. Nothing else in this
+repository has a grade.
 
 === Proofs Done
 
 [cols=",,,,,",options="header",]
 |===
 |ID |Proof |Prover |File |Date |Verified By
-|— |No proofs completed yet |— |— |— |—
+
+|DOM-1
+|Receipt versus warrant: a receipt is factive, a warrant is not, and a
+ Kripke countermodel shows the legacy marker has no soundness witness
+ |Agda 2.7.0.1
+|`verification/proofs/agda/Burrow/Trust.agda`
+|2026-11-01
+|`just proof-check-agda`, `agda --safe --without-K --cubical-compatible`,
+ 0 warnings; also clean under full `--cubical`
+
+|DOM-2
+|Ledger read path: no function from a stored record to the fact exists
+ (`no-launder`); promotion needs a per-record soundness witness
+ |Agda 2.7.0.1
+|`verification/proofs/agda/Burrow/Ledger.agda`
+|2026-11-01
+|As DOM-1
 |===
+
+These two are the semantic record that was missing: before 2026-11-01 the
+receipt/warrant distinction existed only as a Rust `Option<ProofReceipt>`
+and a sentence in the ledger explanation, so nothing pinned down which
+operations on it are sound. They follow the `Warrant` / `SoundWarrant` /
+Kripke pattern in `hyperpolymath/epistemic-types` (`5422cd5`), copied
+rather than imported.
 
 === Proofs In Progress
 
@@ -53,7 +81,17 @@
 |ABI-5 |C ABI compliance |ABI |Idris2 |P1 |4h
 |TP-1 |Core data type well-formedness |TP |Idris2 |P1 |4h
 |TP-2 |Public API type safety |TP |Lean4 |P2 |4h
+|DOM-3 |`extract_statement` preserves every quoted conclusion |DOM |Agda |P1 |8h
+|DOM-4 |`sanitize_filename` is idempotent (filter by a decidable predicate) |DOM |Agda |P2 |2h
+|DOM-5 |Jaccard similarity is bounded in [0, 1] |DOM |Agda |P2 |4h
+|DOM-6 |JCS canonicalisation acceptance is decidable |DOM |Agda |P2 |6h
+|DOM-7 |Creusot contracts on `parse_prove_result` and `SocketGuard::drop` |DOM |Creusot |P1 |blocked
 |===
+
+DOM-7 is blocked, not merely outstanding: Creusot needs a pinned nightly
+with `rustc-dev` and Why3 plus provers, and no Rust toolchain can be
+installed in the current environment. See
+`docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
 
 === Verification Commands
 
@@ -84,4 +122,7 @@ panic-attack assail --proofs-only
 |===
 |Date |Change |By
 |2026-04-04 |Initial proof status tracking |Template
+|2026-11-01 |DOM-1 and DOM-2 proved in Agda (Grade 3); DOM-3..7 added;
+ `just proof-check-agda` moved to the estate canonical flags with an
+ include path |Audit 2026-11-01
 |===

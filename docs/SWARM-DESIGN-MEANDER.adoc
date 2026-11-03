@@ -331,16 +331,24 @@ A great form of this system would have:
   Adding a new domain means writing a 007 file, not patching Rust.
 * **A shared Burrow Ledger** persisted in VeriSimDB (per estate
   policy: `feedback_verisimdb_policy.md`) so the knowledge survives
-  restarts and can be queried historically.
+  restarts and can be queried historically. "Shared" means one ledger
+  behind a backend seam, not two processes on one file and not a socket
+  between repositories: writes go through VCL / the Octad API, and
+  publication into the estate's canonical index is a *nomination* under
+  Mathesis §8, never a direct write. See
+  `ECHIDNA-INTEGRATION.adoc` §topology-invariant.
 * **A Pattern Library** that surfaces useful generalisations weekly
   via a digest agent ("This week's emergent patterns: …").
 * **An adversarial sub-swarm** — a Devil's Advocate specialist that
   *deliberately* proposes counter-readings, forcing the others to
   defend their claims with stronger evidence. (Inspired by
   `feedback_full_battery_before_claims.md`.)
-* **ECHIDNA integration** as a native ledger consumer: when ECHIDNA
-  fails to close a goal, it posts to the ledger, swarm specialists
-  read, and the most-engaged one proposes a remediation.
+* **ECHIDNA integration** as a native ledger contributor: when ECHIDNA
+  fails to close a goal, it *nominates* a record to the ledger (not a
+  direct append — `ledger.rs` is single-writer with no locking), swarm
+  specialists read, and the most-engaged one proposes a remediation. A
+  nomination is validated on the way in, so a record that claims a receipt
+  without one is demoted to a warrant rather than believed.
 * **Per-specialist confidence calibration** — each specialist learns
   how often it's been wrong on which kinds of goals; high-confidence
   agents are weighted more in synthesis. This is Bullshit-Field

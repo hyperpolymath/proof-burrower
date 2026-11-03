@@ -1404,16 +1404,31 @@ proof-check-agda:
         echo "SKIP: agda not installed"
         exit 0
     fi
+    # Estate canonical invocation (standards 3-practice/PROOF-POLICY.adoc
+    # §2.1). `--cubical-compatible` implies `--without-K`; both are named
+    # because the policy names both.
+    AGDA_FLAGS="--safe --without-K --cubical-compatible"
+    # Modules under verification/proofs/agda are named relative to that
+    # directory (e.g. Burrow.Trust lives in Burrow/Trust.agda), so it has
+    # to be on the include path or Agda rejects the module name.
+    AGDA_INCLUDE="verification/proofs/agda"
     ERRORS=0
-    for f in $(find verification/proofs/agda -name '*.agda' 2>/dev/null); do
+    for f in $(find "$AGDA_INCLUDE" -name '*.agda' 2>/dev/null | sort); do
         echo -n "  Checking $f ... "
-        if agda --safe "$f" 2>/dev/null; then
-            echo "OK"
+        if out=$(agda $AGDA_FLAGS -i "$AGDA_INCLUDE" "$f" 2>&1); then
+            if echo "$out" | grep -qi 'warning:'; then
+                echo "OK (with warnings)"
+                echo "$out" | grep -i 'warning:' | sed 's/^/      /'
+            else
+                echo "OK"
+            fi
         else
             echo "FAIL"
+            echo "$out" | sed 's/^/      /'
             ERRORS=$((ERRORS + 1))
         fi
     done
+    find "$AGDA_INCLUDE" -name '*.agdai' -delete 2>/dev/null || true
     if [ "$ERRORS" -gt 0 ]; then
         echo "FAIL: $ERRORS Agda proof(s) failed"
         exit 1

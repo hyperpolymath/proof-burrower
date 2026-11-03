@@ -36,3 +36,35 @@ Keep another format only where a consumer the owner does not control
 would break (for example a tool that rewrites the file). Record why
 beside the file. Tools the owner controls are changed to handle the
 standard instead of being exempted.
+
+### Proofing (normative: `3-practice/PROOF-POLICY.adoc`)
+
+The estate proof and verification policy is normative for this
+repository; this section is only a pointer and a short mapping. Read that
+file, not this summary.
+
+| Obligation | Verifier |
+|------------|----------|
+| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot |
+| APIs, ABIs, wire formats, engineering properties | Idris2 |
+| Theory (anything true of any implementation) | Agda, rechecked in Rocq and Lean |
+
+- Canonical Agda invocation, in recipes and CI alike:
+  `agda --safe --without-K --cubical-compatible <module.agda>`.
+  `--cubical-compatible` is not full `--cubical`. Pin and record the Agda
+  version and standard library with each source commit and proof result.
+- Grade ladder (Mathesis §5): Grade 3 = type-checks locally in Agda,
+  untranslated; 2i = one independent system; 2ii = two, the second
+  non-DTT (e.g. Isabelle/HOL); 1 = machine-checked via a verified checker
+  API in headless CI. Never flatten this into a confidence percentage.
+- Missing tools, incompatible dependencies or failed theorems are open
+  obligations. Do not skip proofs or weaken flags to make a check green.
+- Escape hatches follow `docs/TRUSTED-BASE-REDUCTION-POLICY.adoc` and are
+  recorded in `docs/proof-debt.adoc`.
+- An ECHIDNA result is *evidence about someone else's proof*. Burrower
+  records the grade it was told and never asserts one it derived.
+
+Status for this repo: 0 of 7 obligations proven; no first-party Agda
+theorem yet, so nothing here is at Grade 3. See
+`docs/status/PROOF-STATUS.adoc` and
+`docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
