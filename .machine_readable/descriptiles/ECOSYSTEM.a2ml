@@ -11,15 +11,23 @@ purpose = "Locate the mathematical home of a proof goal, read it through special
 
 [pipeline]
 position = "pre-prover"
-chain = "author goal → proof-burrower (find/swarm/attempt) → echidna prove → ledger"
-notes = "Consumer of ECHIDNA's echidna.prove.result/1 contract; candidate consumer for echidnabot via `burrower serve`."
+chain = "author goal → proof-burrower (find/swarm/attempt) → echidna prove → local JSONL ledger"
+notes = "Consumer of ECHIDNA's echidna.prove.result/1 contract. `burrower serve` exists but is an unauthenticated same-host affordance with no estate consumer; echidnabot reaches Burrower through the CLI, not the socket."
+
+[topology]
+invariant = "no point-to-point ledger wiring"
+rule = "One ledger, one writer (ledger::Ledger), local JSONL today. A non-local backend must be an implementation behind Ledger reaching VeriSimDB through VCL / the Octad API; publication to the estate index is a nomination, never a direct write."
+authority = "hyperpolymath/mathesis estate-mathematical-architecture §8; verisimdb docs/vcl-vs-sql.adoc"
+status = "No network or storage client exists in the workspace; no async runtime, no wasm32-incompatible dependency."
 
 [related-projects]
 projects = [
   { name = "echidna", relationship = "prover", notes = "Subprocess `echidna prove`; contract echidna.prove.result/1 (docs/ECHIDNA-INTEGRATION.adoc)." },
-  { name = "echidnabot", relationship = "planned-consumer", notes = "Could consult `burrower serve` on failed proofs; not wired today." },
+  { name = "echidnabot", relationship = "planned-consumer", notes = "Would invoke `burrower swarm` as a subprocess on failed proofs; not wired today." },
   { name = "tropical-types", relationship = "oracle", notes = "tools/julia-oracle.jl, optional pre-proof numerical oracle (caller-supplied path)." },
-  { name = "ijson-jcs", relationship = "library", notes = "RFC 8785 / RFC 7493 validation of the prove-result contract (git dependency pinned by rev)." },
-  { name = "epistemic-types", relationship = "pattern", notes = "Receipt vs warrant distinction copied as a pattern; no dependency." },
-  { name = "standards", relationship = "parent", notes = "RSR policies and reusable CI workflows." },
+  { name = "serde_json_canonicalizer", relationship = "library", notes = "RFC 8785 (JCS) canonicalisation for the prove-result contract; published crate 0.3 on crates.io. Substitutes for the private estate crate ijson-jcs until that is public." },
+  { name = "epistemic-types", relationship = "pattern", notes = "Receipt vs warrant (factive/non-factive) distinction copied as a pattern; no dependency. Real Kripke semantics landed at 5422cd5." },
+  { name = "mathesis", relationship = "authority", notes = "Graded-proof ladder (Grade 3/2ii/2i/1) and the no-direct-write nomination rule that bounds this repo's ledger topology." },
+  { name = "verisimdb", relationship = "planned-backend", notes = "Ledger persistence target via VCL / the Octad API only; no client dependency exists today." },
+  { name = "standards", relationship = "parent", notes = "RSR policies and reusable CI workflows; 3-practice/PROOF-POLICY.adoc is normative for proofing." },
 ]

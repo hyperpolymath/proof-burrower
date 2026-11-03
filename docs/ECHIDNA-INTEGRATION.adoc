@@ -60,13 +60,103 @@ This doc covers *the wires between Burrower and ECHIDNA / echidnabot*.
   `echidna.prove.result/1` contract when the installed echidna supports it
   (<<prove-result-contract>>)
 * EI-1 (`--project-root`) and safe-learning (b) (`--sandbox`) are
-  implemented on both sides and forwarded by `ProverConfig`
+  forwarded by `ProverConfig` and asserted on the echidna side. Only the
+  Burrower half is checkable from this repository: `prove_command`
+  (`attempt.rs`) emits both flags and `process_contract.rs` asserts their
+  positions. Whether an installed echidna accepts them is a property of
+  that binary, not something proved here.
 * BI-1 (`burrower serve`) is implemented on the Burrower side; no echidna
   or echidnabot client calls it yet
 
 The third bullet is the only integration that runs end to end today
 (exercised by `tests/e2e.sh` in the `Burrower proof safety` workflow).
-Everything else in this document from EI-2 onward is **planned**.
+Everything else is proposed. Per-item status — implemented, proposed, or
+blocked — is in <<status-table>>; do not read a section heading as a
+statement that the section is built.
+
+[[status-table]]
+=== Status of every item in this document
+
+[cols="1,2,3"]
+|===
+|Item |Status |Note
+
+|Contract consumer (`echidna.prove.result/1`)
+|*Implemented*
+|`echidna_contract.rs`, `attempt.rs`. Covered by fake binaries only: the
+ CI echidna pin predates `--output json`, so the live e2e runs the legacy
+ branch.
+
+|EI-1 (`--project-root`), safe-learning (b) (`--sandbox`)
+|*Implemented (Burrower side)*
+|Forwarded by `ProverConfig`; echidna-side acceptance asserted, not
+ verifiable here.
+
+|BI-1 (`burrower serve`)
+|*Implemented (Burrower side)*
+|Unauthenticated same-host Unix socket. **No estate component consumes
+ it**, and per <<topology-invariant>> it is not the integration surface
+ for one.
+
+|EI-2, EI-3, EBI-1, EBI-2, EBI-3, BI-2, BI-3
+|*Proposed*
+|Nothing is built. EI-2's socket, EI-3's second writer, EBI-2's direct
+ storage backend and BI-3's shared socket conflict with
+ <<topology-invariant>> as written and are scoped by it below.
+
+|VeriSimDB / VCL ledger backend
+|*Blocked*
+|See <<topology-invariant>>. Two open blockers: the only VCL Rust client
+ is async (tokio + reqwest) against a crate with no async runtime that
+ also targets wasm32, and whether it can be depended on from a public
+ repo is unresolved.
+|===
+
+[[topology-invariant]]
+=== Topology invariant: no point-to-point ledger wiring
+
+The estate's shared-data-plane model does not permit two repositories to
+wire a private channel between themselves, or a repository to open its own
+connection to a data store. Two normative statements carry the substance:
+
+* `verisimdb` (`docs/vcl-vs-sql.adoc`): "VCL's **preferred** write path is
+  the Octad API (Rust core or Elixir orchestration layer), not the
+  language. VeriSimDB treats writes as coordinated multi-modal operations
+  that must maintain consistency across all eight modality stores … a bare
+  `INSERT` cannot by itself express the cross-modal invariants an octad
+  write requires."
+* `hyperpolymath/mathesis` (`estate-mathematical-architecture` §8):
+  "Agents must not have direct write-access to mutate the canonical
+  SQLite index. Provide a strict 'write-back' or 'nomination' API where
+  agents can submit discovered broken links, missing verification
+  receipts, or false positives for human or CI-gated review."
+
+proof-burrower is an agent in that sentence. Therefore:
+
+. **`ledger::Ledger` is the intended single write point, not an enforced
+  guarantee.** The local JSONL file has no lock, so operators must serialise
+  all writers that use the same ledger path. It remains the only
+  backend that exists.
+. **`burrower serve` is a local debugging affordance, not an integration
+  surface.** It has no authentication and no peer-credential check; it is
+  for an operator on one host. It is not a route for echidna or
+  echidnabot to reach the swarm, and no proposal in this document should
+  treat it as one.
+. **A future non-local backend is an implementation behind `Ledger`**,
+  selected by configuration, and for VeriSimDB it goes through VCL / the
+  Octad API — never a direct modality-store connection, and never S3,
+  which is not a VeriSimDB modality store.
+. **Publication to Mathesis is a nomination**, not a write, and it
+  carries the fields Mathesis §6 requires (a grade from
+  Open / Claimed / Grade 3 / Grade 2i / Grade 2ii / Grade 1, the axiom
+  list, and the exact source commit hash of the verification receipt).
+. **Receipts cross the seam unchanged and are re-validated on read**
+  (<<receipt-on-read>>).
+
+The consequence for the proposals below is that each one names its
+adapter rather than its peer: EI-2 consults the ledger, not a socket;
+EI-3 nominates, it does not append; EBI-2 configures a backend, it does
+not embed an S3 or `vsdb://` client.
 
 [[prove-result-contract]]
 == The `echidna.prove.result/1` contract
@@ -143,6 +233,42 @@ Implemented in `crates/burrower-core/src/echidna_contract.rs` and
 . **Ledger.** A receipt-backed success stores the receipt under the
   record's `extra.receipt`, including its `result_id` (below).
 
+[[receipt-on-read]]
+==== Receipts are validated on the way in, and must be re-validated on the way out
+
+Creation is strict and stays strict: a receipt exists only because
+`parse_prove_result` accepted one JCS-canonical line naming `/1`, and only
+a `verified` status with a zero exit becomes a success. Nothing in this
+document weakens that.
+
+Reading is the weak side, and it is weak *today*: `Ledger::read_all`
+deserialises each line and skips malformed ones, but `extra` is an opaque
+JSON value, so nothing checks `extra.receipt` before a reader trusts it.
+While Burrower is the only writer this is latent. It becomes live the
+moment any second writer exists (EI-3, an EBI-2 round trip, a hand-edited
+ledger), because a record that merely *looks* receipt-backed would then be
+indistinguishable from one that is.
+
+So, before any second ledger writer or non-local backend is added:
+
+* A receipt read from anywhere other than a same-process
+  `ProofReceipt::from_result` is a **claim**, not a receipt.
+* Re-validate its shape against this contract, and **re-derive
+  `result_id`** with `ids::content_id` over the receipt's contract fields.
+  A mismatch means the payload changed in storage or in transit.
+* A record failing either check is demoted to a warrant — the ledger
+  explanation must say so — and the demotion is recorded, never dropped
+  silently.
+
+This is `PROOF-POLICY.adoc` §2.1's rule applied to transported evidence:
+"Prior `--safe` … successes are historical evidence, not receipts for this
+new combined profile."
+
+The receipt/warrant split follows the factive/non-factive distinction in
+`hyperpolymath/epistemic-types` (`FactiveModality`, with real Kripke
+semantics as of `5422cd5`). It is copied as a pattern; Burrower does not
+depend on that Agda library and must not start to.
+
 [[identifiers]]
 === Identifiers
 
@@ -175,9 +301,55 @@ strings, not UUIDs; old ledgers keep them.
 Not yet content-addressed: corpus entries (`corpus::IndexedLemma`) carry no
 id today; when they gain one it must come from `ids::content_id`.
 
-The receipt/warrant split follows the factive/non-factive distinction in
-`hyperpolymath/epistemic-types` (`FactiveModality`). It is copied as a
-pattern; Burrower does not depend on that Agda library.
+The receipt/warrant vocabulary is defined in <<receipt-on-read>>.
+
+[[grading]]
+==== What a receipt must carry to be indexed by Mathesis
+
+The estate grades proofs rather than scoring them.
+`hyperpolymath/mathesis` (`estate-mathematical-architecture` §5, §6)
+requires that a result be recorded as exactly one of *Open, Claimed,
+Grade 3, Grade 2i, Grade 2ii, Grade 1* — "Do not flatten proof confidence
+into a percentage" — together with its axiom dependencies and "the exact
+Git commit hash of the verification receipt", plus `Superseded` and
+`Regressed` statuses for results that stop holding.
+
+`ProofReceipt` today carries `schema`, `prover`, `axioms`, `confidence`,
+`echidna_version` and `result_id`. Against that requirement it is short:
+
+[cols="1,3"]
+|===
+|Missing |Why it matters
+
+|a *grade*
+|Without one, a Burrower success has no place on the ladder, and
+ `confidence` becomes the de facto grade — the flattening §6 forbids.
+
+|a *source commit hash*
+|`echidna_version` is a version string. The one commit pin this repository
+ actually holds is in `.github/workflows/proof-safety.yml`
+ (`556d6468…`), and it never reaches the receipt, so a receipt cannot be
+ tied to the code that produced it.
+
+|*stdlib / toolchain pins*
+|`PROOF-POLICY.adoc` §2.1: "Pin and record the Agda version and standard
+ library with each source commit and proof result."
+
+|*axiom dispositions*
+|`trust.axioms` lists escapes but does not classify them. The estate
+ requires each to be (a) DISCHARGED, (b) BUDGETED with a refutation
+ budget, or (c) a NECESSARY AXIOM with a justification
+ (`docs/TRUSTED-BASE-REDUCTION-POLICY.adoc`). An unclassified axiom is the
+ unfalsifiable "covered by tests" that policy rejects.
+|===
+
+These are **not** added to `/1`. Removing or retyping a field needs `/2`,
+and so does adding semantics to an existing one; the grade and commit
+fields belong in `echidna.prove.result/2` (hand-off E-1/T-2 in
+`docs/plans/CROSS-REPO-HANDOFFS-2026-10-09.adoc`). Until then Burrower
+records what echidna reported and asserts no grade of its own — its
+Isabelle results sit on the estate's Engineering Path, and Grade 1
+requires the verified-checker-API route, which is echidna's property.
 
 === Tests
 
@@ -259,16 +431,18 @@ The `--diagnose` flag prints generic advice ("try a smaller example").
 **Fix.** New top-level subcommand:
 [source]
 ----
-echidna suggest <file>:<lemma> [--budget 60s] [--burrower <socket>]
+echidna suggest <file>:<lemma> [--budget 60s] [--ledger <burrow-ledger>]
 ----
 
 Behavior:
 
 . Extract the lemma's statement into a probe.
 . Run Sledgehammer for `--budget` seconds (Isabelle has this built-in).
-. **If `--burrower` socket is provided**, send the goal to the Burrower
-  swarm; receive back ranked candidate homes + anti-patterns from the
-  ledger. Format as additional suggestions.
+. **If `--ledger` is provided**, read the Burrow ledger for ranked
+  candidate homes + anti-patterns. Format as additional suggestions. This
+  is a *read* of a shared artefact, not a call into a running Burrower:
+  per <<topology-invariant>> echidna must not dial a Burrower socket, and
+  the earlier `--burrower <socket>` form of this flag is withdrawn.
 . Try a curated list of *substitutions* (the synonym table from
   `AI-WORK-echidna.md` §3.2): `induct→induction`,
   `add_le_add→add_mono`, `omega→linarith`, `by simp ↔ by auto`, etc.
@@ -295,20 +469,33 @@ echidna/src/rust/suggest/burrower.rs     # optional client to Burrower socket
 recorded anywhere reusable. The next time someone tries the same goal,
 ECHIDNA repeats the same exhaustive search.
 
-**Fix.** ECHIDNA gains a Burrow-Ledger writer: every prove invocation
-appends a `LedgerRecord` (matching the schema in
-`crates/burrower-core/src/ledger.rs`) to a configured ledger file.
-Successful proofs become positive patterns; failures become
-anti-patterns or generic-failures.
+**Fix.** ECHIDNA gains a Burrow-Ledger *nominator*: every prove
+invocation produces a `LedgerRecord` (matching the schema in
+`crates/burrower-core/src/ledger.rs`) and submits it to the shared ledger
+layer. It does not append to a Burrower-owned file directly.
+
+The distinction is load-bearing, not stylistic. `ledger.rs` documents
+"One writer; many readers" and "No locking yet — single-writer assumed",
+so a second process appending to the same path is both a data race and a
+way to manufacture records that look receipt-backed without a receipt
+(<<receipt-on-read>>). Mathesis §8 states the rule for the estate: agents
+"must not have direct write-access to mutate the canonical … index" and
+instead submit through a "write-back" or "nomination" API gated by a human
+or CI. An echidna-produced record therefore enters as a nomination that
+the ledger owner validates — re-deriving `result_id` where a receipt is
+claimed — before it counts.
+
+Successful proofs become positive patterns; failures become anti-patterns
+or generic-failures.
 
 Configuration:
 [source,toml]
 ----
 # ~/.config/echidna/config.toml
 [ledger]
-path = "/var/lib/echidna/burrow.jsonl"
-auto_record = true
-specialist_name = "Echidna"  # appears in the ledger as the author
+nominate_to = "burrow"        # ledger layer, not a file path
+auto_nominate = true
+specialist_name = "Echidna"   # appears in the ledger as the author
 ----
 
 **Why this matters.** ECHIDNA becomes a first-class participant in the
@@ -324,9 +511,13 @@ update their playbooks.
 verified" or "✗ proof X failed at line Y". No domain context, no
 related-work pointer, no anti-pattern callout.
 
-**Fix.** When a Burrower socket is configured, echidnabot routes every
-new/changed lemma through `burrower swarm` and includes the synthesis
-output in the PR comment as a collapsed "Swarm findings" section.
+**Fix.** echidnabot invokes `burrower swarm` as a subprocess for every
+new/changed lemma and includes the synthesis output in the PR comment as
+a collapsed "Swarm findings" section. This is the same shape as its
+existing `echidna prove` dispatch — a CLI call, not a connection — so it
+needs no socket and stays inside <<topology-invariant>>. Reading the
+anti-patterns from a shared ledger goes through that ledger's backend,
+not through a live Burrower process.
 
 Example PR comment delta:
 [source,markdown]
@@ -354,24 +545,45 @@ this shape; auto succeeds (3 prior runs).
 === EBI-2 (medium): ledger as first-class CI artifact
 
 **Problem.** The Burrow Ledger is a local-disk JSONL today. CI runs
-should append to a shared, persistent ledger so knowledge accumulates
+should contribute to a shared, persistent ledger so knowledge accumulates
 across PRs and over time.
 
-**Fix.** echidnabot uploads the per-PR ledger delta to a configured
-storage backend (S3 / VeriSimDB per estate policy). The full repo
-ledger is reconstructible from the deltas. New PRs can read the
-historical ledger to surface anti-patterns from prior similar work.
+**Fix.** echidnabot nominates the per-PR ledger delta to the shared ledger
+layer. The full repo ledger is reconstructible from the deltas. New PRs
+can read the historical ledger to surface anti-patterns from prior similar
+work.
 
-Schema (TOML):
+The earlier form of this item offered `backend = "verisimdb"  # or "s3"`
+with a `vsdb://swarm/burrow-ledger` URL. That is withdrawn: it is a
+point-to-point client from CI into a data store, which
+<<topology-invariant>> rules out, and "or s3" offered an uncontrolled
+bypass as a peer option even though S3 is not a VeriSimDB modality store.
+A delta reaches VeriSimDB through the Octad API (`POST /api/octads`),
+which is what `verisimdb/docs/vcl-vs-sql.adoc` names as the preferred
+write path, because a bare write "cannot by itself express the cross-modal
+invariants an octad write requires".
+
+What this needs from Burrower first, in order:
+
+. the `LedgerBackend` seam, with the local JSONL file as its only
+   implemented backend;
+. read-path receipt re-validation (<<receipt-on-read>>), because a delta
+   that has been uploaded and downloaded is exactly the case where a
+   receipt can arrive altered;
+. resolution of whether `verisimdb-client` can be depended on from this
+   public repository, and whether `burrower-core` gains an async runtime
+   or a blocking bridge to talk to it.
+
+Schema (TOML), backend named by kind rather than by endpoint, so no URL or
+credential ever appears in repo config:
 [source,toml]
 ----
 [ledger.storage]
-backend = "verisimdb"  # or "s3" or "local"
-url     = "vsdb://swarm/burrow-ledger"
+backend = "local"        # the only implemented backend today
 
 [ledger.delta]
-upload_on   = ["pr-merged", "main-push"]
-delta_only  = true   # don't re-upload the whole ledger every time
+nominate_on = ["pr-merged", "main-push"]
+delta_only  = true       # nominate the delta, not the whole ledger
 ----
 
 === EBI-3 (large): ECHIDNA-failure → swarm-remediation auto-PR
@@ -382,30 +594,52 @@ known-good substitution (e.g. `induct → induction`), echidnabot
 doesn't propose it.
 
 **Fix.** echidnabot gains a "remediation mode": on a verified ECHIDNA
-failure, query the swarm + ledger for known good fixes; if confidence
-exceeds a threshold, auto-open a PR with the suggested edit. PR
-description cites the ledger evidence.
+failure, query the swarm + ledger for known good fixes; if the evidence
+meets the bar, auto-open a PR with the suggested edit. PR description
+cites the ledger evidence.
 
-Confidence threshold: configurable, defaults to **0.8** (i.e., fix is
-known to have worked on 4 out of 5 prior similar goals). Below
-threshold, echidnabot posts as a comment-only suggestion.
+**The bar is a grade, not a percentage.** The earlier form of this item
+set a numeric "Confidence threshold … defaults to **0.8** (i.e., fix is
+known to have worked on 4 out of 5 prior similar goals)". That is
+withdrawn on two estate grounds: Mathesis §6 — "Do not flatten proof
+confidence into a percentage. Record exactly whether a result is Open,
+Claimed, Grade 3, Grade 2i/ii, or Grade 1" — and §13 — "Do not allow
+agent-generated evidence to count as independent corroboration". A tally
+of prior swarm successes is agent-generated evidence about *other* goals;
+it is not corroboration for this one, and no threshold on it makes it so.
+
+Replacement rule: a remediation PR may be opened only where the suggested
+edit rests on a ledger record that is **receipt-backed** — a
+`ProofReceipt` whose `result_id` re-derives (<<receipt-on-read>>) — for a
+goal whose content id matches under the corpus's own similarity, with the
+matching stated in the PR body. Anything weaker, including any count of
+prior similar successes, is posted as a comment-only suggestion and
+labelled as unverified.
 
 Operational policy: PR labels include `swarm-suggested` so reviewers
 can filter; auto-PR rate-limited per repo per day.
 
 == Burrower side — three reciprocal hooks
 
-=== BI-1 (small): expose `burrower serve` socket
+=== BI-1 (small): expose `burrower serve` socket — *implemented*
 
-**Today.** Burrower runs as a one-shot CLI.
-
-**Fix.** Add `burrower serve --socket /tmp/burrower.sock` that listens
-on a Unix socket for `swarm` / `attempt` / `ledger` requests in JSON.
-ECHIDNA's `--burrower` flag and echidnabot's swarm-findings hook both
-consume this socket.
+**Implemented** in `crates/burrower-core/src/serve.rs`: `burrower serve
+--socket /tmp/burrower.sock` listens on a Unix socket, one thread per
+connection, and refuses to bind an occupied path.
 
 Protocol: simple line-delimited JSON (request: `{cmd, args}`,
-response: same as the CLI's `--format json` output).
+response: same as the CLI's `--format json` output), with
+`cmd` ∈ `swarm | attempt | ledger | ping`.
+
+**What it is not.** It has no authentication and no peer-credential
+check, and nothing in the estate calls it. It is a local debugging
+affordance for an operator on one host — not the integration surface for
+echidna or echidnabot, which reach Burrower through the CLI and the shared
+ledger instead (<<topology-invariant>>). The earlier text here said
+"ECHIDNA's `--burrower` flag and echidnabot's swarm-findings hook both
+consume this socket"; that intent is withdrawn. Making it a real service
+surface would need authentication, a peer-credential or token check, and a
+decision on multi-request streams, none of which exists.
 
 === BI-2 (medium): ECHIDNA-as-specialist
 
@@ -425,64 +659,93 @@ prover) so the other specialists' contribution is measurable as
 **Today.** Burrower writes its own ledger. ECHIDNA writes its own
 (after EI-3).
 
-**Fix.** Both write to the *same* ledger via a shared socket. The
-`Specialist` trait's `record_attempt` hook becomes the single write
-point. ECHIDNA shows up as one specialist among many in the digest.
+**Fix.** Both contribute to the *same* ledger through the shared ledger
+layer, with `ledger::Ledger` as the single in-process write point and
+echidna contributing by nomination (EI-3). ECHIDNA shows up as one
+specialist among many in the digest.
+
+The earlier form — "Both write to the *same* ledger via a shared socket"
+— is withdrawn. It was point-to-point by construction, and it made a
+second process a writer of a file that `ledger.rs` documents as
+single-writer with no locking. A socket is a transport between two
+peers; what is actually needed is one ledger with one writer and a
+gated path in for everyone else.
 
 == Stability / dependency map
 
-[cols="1,1,1,3"]
+[cols="1,1,1,1,3"]
 |===
-|Change |Effort |Risk |Depends on
+|Change |Status |Effort |Risk |Depends on
+
+|Contract consumer
+|done
+|—
+|—
+|Covered by fake binaries only until the CI pin moves (T-1).
 
 |EI-1 (project-aware probe)
-|days
-|low
-|nothing
-
-|EI-2 (suggest verb)
-|weeks
-|low
-|EI-1, BI-1
-
-|EI-3 (ECHIDNA→Ledger)
-|weeks
-|low
-|nothing
-
-|EBI-1 (swarm in PR comments)
-|days
-|low
-|BI-1
-
-|EBI-2 (ledger CI artifact)
-|days
-|medium
-|EI-3 OR Burrower-only ledger
-
-|EBI-3 (auto-remediation PR)
-|months
-|HIGH (auto-edit on main!)
-|EI-2, EI-3, EBI-1, EBI-2, BI-3
+|done (Burrower side)
+|—
+|—
+|echidna-side acceptance asserted, not verified here.
 
 |BI-1 (`burrower serve` socket)
-|days
-|low
-|nothing
+|done (Burrower side)
+|—
+|—
+|Local affordance only; unauthenticated; no estate consumer.
 
-|BI-2 (ECHIDNA as specialist)
-|days
+|EI-2 (suggest verb)
+|proposed
+|weeks
 |low
-|BI-1
+|EI-1. No longer depends on BI-1: it reads a ledger, not a socket.
 
-|BI-3 (bidirectional ledger)
+|EI-3 (ECHIDNA→Ledger nomination)
+|proposed
 |weeks
 |medium
-|EI-3, BI-1
+|Read-path receipt re-validation (T-3). Risk raised from *low*: a second
+ writer of a single-writer file is a soundness problem, not just plumbing.
+
+|EBI-1 (swarm in PR comments)
+|proposed
+|days
+|low
+|Nothing. It shells out to `burrower swarm`.
+
+|EBI-2 (ledger CI artifact)
+|*blocked*
+|weeks
+|medium
+|The `LedgerBackend` seam (T-4), T-3, and whether `verisimdb-client` is
+ depend-on-able from a public repo.
+
+|EBI-3 (auto-remediation PR)
+|proposed
+|months
+|HIGH (auto-edit on main!)
+|EI-2, EI-3, EBI-1, EBI-2, BI-3, and T-2: the bar is a receipt-backed
+ record, not a confidence threshold.
+
+|BI-2 (ECHIDNA as specialist)
+|proposed
+|days
+|low
+|Nothing.
+
+|BI-3 (bidirectional ledger)
+|proposed
+|weeks
+|medium
+|EI-3 and the `LedgerBackend` seam. No longer depends on BI-1: the shared
+ point is the ledger, not a socket.
 |===
 
-**Suggested first-week slice:** EI-1 + BI-1. These two are independent,
-small, and unlock everything else without touching anything risky.
+**Suggested first-week slice:** EI-1 + BI-1 are both already done, so the
+useful next slice is T-1 (move the CI echidna pin so the contract path is
+exercised live) and T-3 (read-path receipt re-validation), which unblocks
+EI-3, EBI-2 and BI-3 without touching anything risky.
 
 == What this doc deliberately does NOT cover
 
@@ -524,5 +787,18 @@ generated three of the integration ideas:
   as the dual of the failing `path_weight_cycle_excise` lemma; this
   was real diagnostic value that should reach the PR author.
 
-The remaining six items (EI-3, EBI-2, EBI-3, BI-1, BI-2, BI-3) are
-forward-looking but follow naturally from the three observed wins.
+The remaining six items (EI-3, EBI-2, EBI-3, BI-2, BI-3, and the
+`LedgerBackend` seam behind EBI-2) are forward-looking but follow
+naturally from the three observed wins. BI-1 was forward-looking when this
+was written and is now implemented on the Burrower side; see
+<<status-table>>.
+
+Since 2026-04-26 the proposals have been re-read against the estate's
+no-point-to-point ledger topology and its graded-proof ladder
+(`hyperpolymath/mathesis` §5-§8, `standards` `3-practice/PROOF-POLICY.adoc`,
+`docs/TRUSTED-BASE-REDUCTION-POLICY.adoc`). Four of them described
+point-to-point wiring and have been narrowed: EI-2's `--burrower <socket>`
+flag, EI-3's direct ledger writer, EBI-2's S3/`vsdb://` backend, EBI-3's
+0.8 confidence threshold, and BI-3's shared socket. The findings and the
+evidence are in
+`docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.

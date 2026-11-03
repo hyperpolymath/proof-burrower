@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Proof Debt — proof-burrower
+:revdate: 2026-11-01
+:status: ACTIVE
+:policy: metadatastician/standards docs/TRUSTED-BASE-REDUCTION-POLICY.adoc
+:proof-policy: metadatastician/standards 3-practice/PROOF-POLICY.adoc
+
+Required by the estate Trusted-Base Reduction Policy: "Every proof-bearing
+repo MUST maintain a `docs/proof-debt.md` (or `.adoc`)". This is that file.
+Every soundness-relevant escape hatch in this repository is listed here
+under exactly one of the three dispositions, or as debt.
+
+The `unsafe` blocks in `crates/burrower-wasm/src/lib.rs` are the C-ABI
+boundary of the WASM shim. They are Rust `unsafe`, not proof escape
+hatches, and the policy's escape-hatch table scopes Rust/Haskell entries to
+`unsafePerformIO` and `unsafeCoerce` "where used in soundness-relevant
+positions". They are recorded in §4 anyway, because the ABI proofs that
+would make them safe (ABI-1..5) do not exist yet, and that is the honest
+reading of the situation.
+
+== (a) Discharged in this repo
+
+- `verification/proofs/agda/Burrow/Trust.agda` — the receipt/warrant
+  semantics (DOM-1). Grade 3: type-checks under
+  `agda --safe --without-K --cubical-compatible`, 0 warnings, also clean
+  under full `--cubical`. Agda 2.7.0.1, agda-stdlib 2.4, 2026-11-01.
+- `verification/proofs/agda/Burrow/Ledger.agda` — the ledger read path and
+  `no-launder` (DOM-2). Same toolchain, same flags, same date.
+
+Entries are removed from this section once a translation leg or an
+engineering proof supersedes them.
+
+== (b) Budgeted — tested with refutation budget
+
+- (none)
+
+There is no property-based or fuzz harness in this repository
+(`tests/fuzz/` holds a README stating that no harness exists), so nothing
+can honestly be claimed as budgeted. Recording a budget without a test
+would be exactly the unfalsifiable "covered by tests" the policy rejects.
+
+== (c) Necessary axiom
+
+- (none)
+
+No first-party proof exists, so no first-party axiom exists.
+
+== 1. Debt
+
+[cols="1,2,1,2,1"]
+|===
+|Site |Escape hatch / gap |Kind |Disposition path |Deadline
+
+|`verification/proofs/agda/Properties.agda`
+|RSR template body, not a project proof — `append-length` and
+ `suc-monotone` over `Data.List`. It type-checks, which is exactly the
+ trap: a template that compiles is not a receipt for this project.
+|Missing proof
+|Replace with a Burrower theorem (DOM-3..6) or delete. The repo's real
+ Agda content is now in `Burrow/Trust.agda` and `Burrow/Ledger.agda`.
+|INDEFINITE — owner to schedule
+
+|`src/interface/ffi/src/main.zig`
+|**Does not compile.** 17 unexpanded RSR template placeholders
+ (`export fn {{project}}_init() …`, lines 55-257). `zig test src/main.zig`
+ fails with `error: expected '(', found '{'` on Zig 0.17.0. Nothing in CI
+ or the Justfile builds it: `Justfile:383` looks for `build.zig` at the
+ repo root or `ffi/zig`, neither of which matches `src/interface/ffi/`.
+|Template residue
+|Instantiate the placeholders or delete the file. `docs/AUDIT.adoc` bars
+ release paths that ship placeholders and stubs.
+|Before any release claim
+
+|`verification/proofs/idris2/ABI/{Pointers,Layout,Platform,Foreign,Compliance}.idr`
+|Template stubs. ABI-1..5 are listed as `Needed` in
+ `docs/status/PROOF-STATUS.adoc`.
+|Missing proof
+|Prove the ABI obligations, or delete the layer with them.
+|INDEFINITE
+
+|`verification/proofs/idris2/Types.idr`, `lean4/ApiTypes.lean`,
+ `coq/TypeSafety.v`, `tlaplus/StateMachine.tla`
+|Template stubs.
+|Missing proof
+|Prove or delete. `coq/` and `tlaplus/` are not in the estate verifier
+ mapping at all and are candidates for deletion.
+|INDEFINITE
+
+|`crates/burrower-core` (all modules)
+|No Creusot contracts on first-party Rust, which `PROOF-POLICY.adoc` §1
+ requires. Highest-value targets are
+ `echidna_contract::parse_prove_result` (a wrong accept manufactures a
+ receipt) and `serve::SocketGuard::drop` (a wrong unlink destroys a file
+ that is not ours).
+|Missing contract
+|Add `#[requires]` / `#[ensures]` and verify with Creusot.
+|INDEFINITE
+
+|`crates/burrower-wasm/src/lib.rs`
+|C-ABI boundary: `read_str`, `write_str`, `parse_goal_json`,
+ `goal_hash_hex`, `version`, `alloc`, `dealloc` — all `unsafe`, none
+ covered by an ABI proof.
+|Boundary trust
+|Either the Idris2 ABI proofs above, or a Creusot contract on the buffer
+ arithmetic plus a documented refutation budget.
+|INDEFINITE
+
+|`crates/burrower-core/src/ledger.rs` (`read_all`)
+|`extra` is opaque JSON, so a stored `extra.receipt` is trusted on sight
+ by any future reader. Latent while Burrower is the only writer; live the
+ moment a second writer exists.
+|Missing validation
+|Re-validate shape and re-derive `result_id` with `ids::content_id`; demote
+ to a warrant on mismatch. **Must land before EI-3, EBI-2 or BI-3.**
+|Before any second ledger writer
+
+|`crates/burrower-core/src/ledger.rs` (`goal_hash`)
+|`DefaultHasher`, which Rust does not promise to keep stable across
+ releases. A goal hash can silently change meaning on a toolchain bump.
+|Missing stability
+|Move consumers to `ids::goal_content_id` (UUIDv8, content-addressed),
+ keeping `goal_hash` only for the wasm ABI.
+|INDEFINITE
+|===
+
+== 2. Corrected marker count
+
+`docs/tech-debt-2026-05-26.adoc` §1 reports `Idr-blv = 6` for this
+repository. That count is a **false positive**. All six hits are comments
+that *prohibit* the marker, not uses of it:
+
+* `verification/proofs/idris2/ABI/{Compliance,Foreign,Layout,Platform,Pointers}.idr:6`
+  — "All proofs MUST be constructive (no believe_me, no assert_total)."
+* `verification/proofs/idris2/ABI/Compliance.idr` plus
+  `verification/proofs/README.adoc:45` — the banned-pattern list itself.
+
+The repository contains **zero** real escape hatches: no `believe_me`, no
+`assert_total`, no `postulate`, no `sorry`, no `Admitted`, no `Axiom`, no
+`unsafeCoerce`. The cause is the one the Trusted-Base Reduction Policy
+already retired for `TODO` markers — "grepping prose … measures the prose,
+not the proofs" — and it should be reported upstream rather than triaged
+here.
+
+The absence of markers is not a clean bill of health. It reflects an empty
+proof set: there is nothing to have escaped from.
+
+== 3. What a Grade 3 result would look like here
+
+Mathesis §5: "A proof is Grade 3 if it type-checks locally in Agda but has
+not been translated to an independent foundational system." For this
+repository the shortest honest path is one theorem about Burrower's own
+contract handling, checked with:
+
+[source,shell]
+----
+agda --safe --without-K --cubical-compatible verification/proofs/agda/<Module>.agda
+----
+
+with the Agda version and standard-library version recorded beside the
+commit, per `PROOF-POLICY.adoc` §2.1. Anything less — a template file that
+compiles, or a proof about `Data.List` — is not a receipt for this project
+and must not be reported as one.
+
+== Changelog
+
+[cols="1,3"]
+|===
+|Date |Change
+
+|2026-11-01
+|Created. Populated from
+ `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`; corrected the
+ `Idr-blv = 6` false positive to 0.
+
+|2026-11-01
+|DOM-1 and DOM-2 moved to §(a) after Agda 2.7.0.1 became available. Added
+ the `src/interface/ffi/src/main.zig` template-residue finding (does not
+ compile; 17 unexpanded placeholders).
+|===

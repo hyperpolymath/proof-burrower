@@ -7,7 +7,7 @@
 
 @state(version="2.0"):
 phase: "pre-alpha"
-next_action: "Bump the proof-safety ECHIDNA pin once echidna ships `prove --output json`, so the live e2e exercises the contract path"
-last_action: "First-run start point: identity restored, affinescript/ removed, echidna.prove.result/1 consumer with legacy fallback"
-updated: 2026-10-05T00:00:00Z
+next_action: "Fix or delete `src/interface/ffi/src/main.zig` — it holds 17 unexpanded `{{project}}` placeholders, does not compile, and nothing in CI builds it"
+last_action: "ECHIDNA integration and ledger topology audited; four point-to-point proposals narrowed behind the no-point-to-point invariant; receipt/warrant semantics landed as Grade 3 Agda proofs (Burrow/Trust, Burrow/Ledger)"
+updated: 2026-11-01T00:00:00Z
 @end
