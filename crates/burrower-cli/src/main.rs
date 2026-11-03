@@ -11,7 +11,10 @@
 //!   given a goal, return ranked candidate "homes".
 
 use anyhow::Result;
-use burrower_core::{parse_goal, rank, Corpus, Ledger, ProverConfig, Swarm};
+use burrower_core::{
+    parse_goal, rank, record_reconciliation, Corpus, Ledger, ProofReconciliation, ProverConfig,
+    Swarm,
+};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -121,6 +124,18 @@ enum Cmd {
         /// Path to the julia binary (default: julia on PATH).
         #[arg(long, default_value = "julia")]
         oracle_julia: PathBuf,
+    },
+    /// Record a reconciliation receipt as UNVERIFIED evidence, not a proof.
+    Reconcile {
+        /// JSON file with the proof.reconciliation/1 receipt.
+        #[arg(long)]
+        receipt: PathBuf,
+        /// Original theorem statement for ledger identity.
+        #[arg(long)]
+        goal: String,
+        /// Existing interim Burrow Ledger (JSONL).
+        #[arg(long)]
+        ledger: PathBuf,
     },
     /// Burrow Ledger inspection.
     Ledger {
@@ -371,6 +386,9 @@ fn handle_attempt(
     Ok(())
 }
 
+/// Dispatch the requested command. Reconciliation reads a JSON receipt and
+/// records it as proposed evidence, propagating read, parse, validation and
+/// ledger errors.
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
@@ -400,6 +418,18 @@ fn main() -> Result<()> {
                 oracle_project,
                 oracle_julia,
             )
+        }
+        Cmd::Reconcile {
+            receipt,
+            goal,
+            ledger,
+        } => {
+            let body = std::fs::read_to_string(&receipt)?;
+            let evidence: ProofReconciliation = serde_json::from_str(&body)?;
+            let ledger = Ledger::open(&ledger)?;
+            record_reconciliation(&ledger, &goal, &evidence)?;
+            eprintln!("reconciliation evidence recorded as proposed, NOT verified");
+            return Ok(());
         }
         Cmd::Ledger { sub } => return handle_ledger(sub),
         Cmd::Serve { socket } => return burrower_core::serve::run(socket),
