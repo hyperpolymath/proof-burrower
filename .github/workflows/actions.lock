@@ -15,7 +15,7 @@ workflows:
         - 'hyperpolymath/deed-ecosystem@main'
         - 'hyperpolymath/k9-ecosystem@main'
     '.github/workflows/governance.yml':
-        - 'metadatastician/standards@ae8492aefec9166af2c6b9ed8f494082d31c183d'
+        - 'metadatastician/standards@857ff096af11451841fb10488fed1438523973a1'
     '.github/workflows/guix-nix-policy.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/hypatia-scan.yml':
@@ -264,9 +264,9 @@ dependencies:
         commit: 'sha1-d1527c8f67ef9af357290475d4af4b0fab8f12e0'
         owner_id: 580492
         repo_id: 298565987
-    'metadatastician/standards@ae8492aefec9166af2c6b9ed8f494082d31c183d':
-        ref: 'ae8492aefec9166af2c6b9ed8f494082d31c183d'
-        commit: 'sha1-ae8492aefec9166af2c6b9ed8f494082d31c183d'
+    'metadatastician/standards@857ff096af11451841fb10488fed1438523973a1':
+        ref: '857ff096af11451841fb10488fed1438523973a1'
+        commit: 'sha1-857ff096af11451841fb10488fed1438523973a1'
         owner_id: 297579217
         repo_id: 1116521501
         uses:
