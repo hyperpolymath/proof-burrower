@@ -10,7 +10,7 @@ on:
   push:
     branches: [claude/new-session-th4e9w-wo10-lockregen]
 permissions:
-  contents: read
+  contents: write
 jobs:
   regen:
     runs-on: ubuntu-latest
@@ -44,3 +44,12 @@ jobs:
           echo "LOCK-BEGIN"
           base64 -w0 pb/.github/workflows/actions.lock; echo
           echo "LOCK-END"
+          # Hand the tool-written lock back on a scratch branch (never merged):
+          # the session copies the file into its PR branch with git.
+          cd pb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -B claude/new-session-th4e9w-wo10-lockout
+          git add .github/workflows/actions.lock
+          git commit -q -m "scratch: regenerated actions.lock (not for merge)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/$REPO.git" HEAD:claude/new-session-th4e9w-wo10-lockout
