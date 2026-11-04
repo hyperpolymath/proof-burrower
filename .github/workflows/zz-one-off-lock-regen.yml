@@ -18,8 +18,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      STANDARDS_REGEN_SHA: 7edba83f55ca7bfb76a99abd4994306312ca8db3
-      STANDARDS_GATE_SHA: 75bd5994470661a099df562d6d5ad2fe744dbd66
+      STANDARDS_REGEN_SHA: e064539116c2dcfdf282a4749dbd58c69961c7e6
+      STANDARDS_GATE_SHA: 857ff096af11451841fb10488fed1438523973a1
     steps:
       - name: Regenerate main's actions.lock and check it with the gate
         run: |
