@@ -53,13 +53,23 @@ can be shipped as a `.wasm` artefact for ECHIDNA's typed-wasm oracle.
 
 * **ECHIDNA** — subprocess `echidna prove <probe.thy> --prover Isabelle -t N
   [--project-root P] [--sandbox M] [--output json]`. Capability is detected
-  once per binary from `echidna prove --help`. See
-  `ECHIDNA-INTEGRATION.adoc`.
+  once per binary from `echidna prove --help`. This is the only live
+  integration. See `ECHIDNA-INTEGRATION.adoc`.
 * **Julia oracle** — subprocess `julia [--project=P] tools/julia-oracle.jl
   <descriptor.a2ml>` from `hyperpolymath/tropical-types`; one verdict line
   on stdout.
 * **Socket clients** — `burrower serve` speaks line-delimited JSON
-  `{cmd, args}` → `{ok, result|error}`.
+  `{cmd, args}` → `{ok, result|error}`. It is unauthenticated, same-host,
+  and no estate component calls it: a local debugging affordance, not an
+  integration surface (see `ECHIDNA-INTEGRATION.adoc`
+  §topology-invariant).
+
+There is no network client and no storage client anywhere in the
+workspace: no `reqwest`, no `tokio`, no `TcpStream`, no `async fn`. The
+ledger is a local file. That is a deliberate consequence of the estate's
+no-point-to-point ledger topology — a non-local backend must arrive as an
+implementation behind `Ledger`, reaching VeriSimDB through VCL / the Octad
+API, not as a direct connection from this process.
 
 == Identifiers and persistence
 

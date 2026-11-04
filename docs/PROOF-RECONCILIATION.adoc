@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MPL-2.0
+= Proof Reconciliation Receipts
+:toc:
+
+Proof Burrower discovers candidate proof locations and can ask ECHIDNA to
+run a prover; neither a search hit nor a proposed tactic establishes that
+a theory theorem has been checked.
+
+Estate policy: https://github.com/metadatastician/standards/blob/main/3-practice/PROOF-POLICY.adoc[Proof and Verification Policy].
+
+== Interim theory reconciliation
+
+The canonical primary checker invocation is:
+
+[source,bash]
+----
+agda --safe --without-K --cubical-compatible path/to/Theorem.agda
+----
+
+Record each original proof and Agda conversion or re-proof, its stable
+theorem identity, source and target digests, checker version and exact
+command, assumptions, kernel result, and CI execution evidence.
+
+Rocq/Coq and Lean are distinct recheck legs. A transported witness is not
+independent evidence until the target kernel accepts it and the source and
+target statements (and assumptions) are compared. A fresh re-proof is a
+valid fallback, with the statement comparison recorded. Preserve all
+prior evidence on unsuccessful conversion; a translation failure never
+refutes a theorem.
+
+Proof status remains the estate's canonical closed vocabulary:
+`proven`, `proven-with-postulates`, `tested-only`, `argued`,
+`open`. The route and execution state of an individual leg are
+separate metadata, not new global status tokens.
+
+A checker that was not invoked is `open` (unavailable), not `proven`.
+Current Burrower attempts use Isabelle; they do not claim to run the
+Agda/Rocq/Lean reconciliation pipeline. ECHIDNA will eventually
+coordinate the full process; this record is an interim evidence format,
+not a second proof engine.
+
+== Recording a reconciliation claim
+
+The first consumer is a typed evidence claim, not an automatic checker.
+Its schema identifier is `proof.reconciliation/1`. To ingest an existing
+JSON receipt (with source/target SHA-256 digests, checker versions, run
+references, and the Agda, Rocq and Lean legs), run:
+
+[source,bash]
+----
+cargo run --locked -p burrower -- reconcile \
+  --receipt path/to/receipt.json \
+  --goal 'the original theorem statement' \
+  --ledger path/to/burrow-ledger.jsonl
+----
+
+The CLI validates the metadata shape and consistency and appends a record
+with status `proposed`. The caller remains responsible for authenticating
+checker executions and comparing statements and assumptions. Do not elevate
+this receipt to `proven` merely because the CLI accepted it.
+
+To check an Agda source with the mandated flags:
+
+[source,bash]
+----
+bash scripts/agda-safe-check.sh verification/proofs/agda/Properties.agda
+bash tests/agda-safe-check.sh
+----
+
+The second command tests the *wrapper* with an artificial checker and
+negative controls; it does not prove Properties.agda. The first command
+requires a real Agda binary and suitable installed libraries and fails
+closed if either is missing or incompatible.
