@@ -151,8 +151,8 @@ just container-push
 selur-compose up --detach
 ----
 
-For k9-svc managed deployments, once `deploy.k9.ncl.in` is rendered to
-`deploy.k9.ncl`:
+For k9-svc managed deployments, render `deploy.k9.ncl.in` to `deploy.k9.ncl`
+first, following its header: `just container-init` does not create it. Then:
 
 [source,bash]
 ----
