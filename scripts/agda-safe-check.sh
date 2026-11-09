@@ -18,12 +18,23 @@ if [[ "$checker" != /* ]]; then
 fi
 "$checker" --version >&2
 include_args=()
+# The pinned toolchain (scripts/ci/setup-agda.sh) names its libraries file in
+# AGDA_LIBRARIES_FILE. Agda reads no such variable, only --library-file, so
+# without this a root carrying an .agda-lib (burrow.agda-lib depends on
+# standard-library-2.1) resolves against ~/.config/agda/libraries instead.
+if [[ -n "${AGDA_LIBRARIES_FILE:-}" ]]; then
+  if [[ ! -f "$AGDA_LIBRARIES_FILE" ]]; then
+    echo "Agda libraries file unavailable: $AGDA_LIBRARIES_FILE" >&2
+    exit 2
+  fi
+  include_args=(--no-default-libraries --library-file "$(realpath -e -- "$AGDA_LIBRARIES_FILE")")
+fi
 if [[ -n "${AGDA_LIBRARY_INCLUDE:-}" ]]; then
   if [[ ! -d "$AGDA_LIBRARY_INCLUDE" ]]; then
     echo "Agda library source directory unavailable: $AGDA_LIBRARY_INCLUDE" >&2
     exit 2
   fi
-  include_args=(-i "$(realpath -e -- "$AGDA_LIBRARY_INCLUDE")")
+  include_args+=(-i "$(realpath -e -- "$AGDA_LIBRARY_INCLUDE")")
 fi
 for source in "$@"; do
   if [[ "$source" == -* || "$source" != *.agda || ! -f "$source" ]]; then

@@ -3,6 +3,8 @@
 # Tests scripts/agda-safe-check.sh with a fake Agda executable.
 # Checks the canonical safe Agda options, rejection of --with-K, and failure when the checker is missing.
 set -euo pipefail
+# The pinned-toolchain variables must not leak in from a CI job environment.
+unset AGDA_LIBRARIES_FILE AGDA_LIBRARY_INCLUDE
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -56,4 +58,18 @@ if AGDA_BIN="$tmp/fake-agda" AGDA_LIBRARY_INCLUDE="$tmp/missing" \
   bash "$root/scripts/agda-safe-check.sh" "$tmp/nested/Test.agda"; then
   echo "missing include directory was accepted" >&2; exit 1
 fi
-echo 'Agda safe invocation, nested module, include path, and negative controls passed'
+# The pinned libraries file reaches Agda as --library-file (Agda reads no
+# AGDA_LIBRARIES_FILE variable), ahead of any -i include.
+printf "%s\n" "$tmp/stdlib/standard-library.agda-lib" > "$tmp/libraries"
+AGDA_BIN="$tmp/fake-agda" AGDA_CAPTURE="$tmp/capture" AGDA_CWD_CAPTURE="$tmp/cwd" \
+ AGDA_LIBRARIES_FILE="$tmp/libraries" AGDA_LIBRARY_INCLUDE="$tmp/stdlib" \
+ bash "$root/scripts/agda-safe-check.sh" "$tmp/nested/Test.agda"
+mapfile -t args < "$tmp/capture"
+[[ "${#args[@]}" -eq 9 && "${args[3]}" == --no-default-libraries ]]
+[[ "${args[4]}" == --library-file && "${args[5]}" == "$tmp/libraries" ]]
+[[ "${args[6]}" == -i && "${args[7]}" == "$tmp/stdlib" && "${args[8]}" == Test.agda ]]
+if AGDA_BIN="$tmp/fake-agda" AGDA_LIBRARIES_FILE="$tmp/no-such-libraries" \
+  bash "$root/scripts/agda-safe-check.sh" "$tmp/nested/Test.agda"; then
+  echo "missing libraries file was accepted" >&2; exit 1
+fi
+echo "Agda safe invocation, nested module, include path, libraries file, and negative controls passed"
