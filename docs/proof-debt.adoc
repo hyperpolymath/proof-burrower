@@ -147,9 +147,13 @@ not the proofs" — and it should be reported upstream rather than triaged
 here.
 
 The absence of markers is not a clean bill of health. The only proofs are
-DOM-1 and DOM-2 in §(a), both under `--safe`, which rejects every marker the
-scan looks for; the markers say nothing about the twelve obligations that
-have no proof at all.
+DOM-1 and DOM-2 in §(a). Their CI check runs under `--safe`, which rejects
+`postulate` and the unsafe pragmas and options (`TERMINATING`,
+`NON_TERMINATING`, `--type-in-type` and the like) in the whole import cone.
+That check and the marker scan are different things: the scan is textual and
+covers other languages' markers (`sorry`, `Admitted`, `believe_me`), which
+`--safe` neither knows nor replaces. Neither says anything about the twelve
+obligations that have no proof at all.
 
 == 3. What a Grade 3 result would look like here
 
