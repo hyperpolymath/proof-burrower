@@ -64,3 +64,39 @@ jobs:
           ECHIDNA_BIN: ${{ github.workspace }}/_echidna/target/debug/echidna
         run: |
           bash tests/e2e.sh
+  agda:
+    # DOM-1/DOM-2 (Agda theory). PROOF-POLICY §2.1 invocation with the
+    # pinned Agda 2.7.0.1 and agda-stdlib 2.1 (digests in setup-agda.sh),
+    # then the §8.2 cone receipt each theorem's PWG is derived from. A
+    # missing or wrong toolchain fails the job; it never skips.
+    name: Agda proofs (DOM-1, DOM-2)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install pinned Agda and standard library
+        run: bash scripts/ci/setup-agda.sh
+      - name: Type-check under the §2.1 invocation (through the wrapper)
+        run: |
+          set -euo pipefail
+          stdlib_src="$(dirname "$(head -n 1 "$AGDA_LIBRARIES_FILE")")/src"
+          AGDA_LIBRARY_INCLUDE="$stdlib_src" bash scripts/agda-safe-check.sh \
+            verification/proofs/agda/Burrow/Trust.agda verification/proofs/agda/Burrow/Ledger.agda
+      - name: Record the §8.2 cone receipts
+        env:
+          AGDA_STDLIB_SHA256: 72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431
+        run: |
+          set -euo pipefail
+          bash scripts/ci/test-agda-cone-receipt.sh
+          receipts="$RUNNER_TEMP/agda-cone-receipts.jsonl"
+          : > "$receipts"
+          for m in Burrow/Trust.agda Burrow/Ledger.agda; do
+            (cd verification/proofs/agda && bash ../../../scripts/ci/agda-cone-receipt.sh "$m") >> "$receipts"
+          done
+          cat "$receipts"
+          {
+            echo '## PROOF-POLICY §8.2 cone receipts (DOM-1, DOM-2)'
+            jq -r '"\(.source.entrypoint) at \(.source.commit): \(.toolchain.agda), \(.import_cone.count) modules, scan \(.postulate_scan.result)"' "$receipts"
+          } >> "$GITHUB_STEP_SUMMARY"

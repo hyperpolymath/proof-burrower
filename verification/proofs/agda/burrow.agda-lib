@@ -1,0 +1,3 @@
+name: burrow
+include: .
+depend: standard-library-2.1
