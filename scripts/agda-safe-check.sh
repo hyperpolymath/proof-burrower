@@ -30,10 +30,23 @@ for source in "$@"; do
     echo "Not a readable Agda source (options forbidden): $source" >&2
     exit 2
   fi
-  module="$(realpath -e -- "$source")"
-  # Module Properties in path/to/Properties.agda must be checked from
-  # path/to, rather than forcing a false module/path mismatch at repo root.
-  ( cd -- "$(dirname -- "$module")" &&
+  file="$(realpath -e -- "$source")"
+  # Agda checks a module from its include root: module Burrow.Trust in
+  # path/to/Burrow/Trust.agda is checked from path/to as Burrow/Trust.agda.
+  # Read the module name from the file and walk up one directory per
+  # component, so hierarchical modules work as well as flat ones.
+  name="$(sed -nE 's/^[[:space:]]*module[[:space:]]+([A-Za-z0-9_.]+)[[:space:]].*/\1/p' "$file" | head -n 1)"
+  if [[ -z "$name" ]]; then
+    echo "No module declaration in $source" >&2
+    exit 2
+  fi
+  rel="${name//.//}.agda"
+  root="${file%/"$rel"}"
+  if [[ "$root" == "$file" || "$root/$rel" != "$file" ]]; then
+    echo "Module $name does not match its path $source" >&2
+    exit 2
+  fi
+  ( cd -- "$root" &&
     "$checker" --safe --without-K --cubical-compatible \
-      "${include_args[@]}" "$(basename -- "$module")" )
+      "${include_args[@]}" "$rel" )
 done

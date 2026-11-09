@@ -26,6 +26,20 @@ mapfile -t args < "$tmp/capture"
 [[ "${args[1]}" == --without-K && "${args[2]}" == --cubical-compatible ]]
 [[ "${args[3]}" == Test.agda ]]
 [[ "$(cat "$tmp/cwd")" == "$tmp/nested" ]]
+# A hierarchical module is checked from its include root (audit 2026-11-09:
+# the wrapper used to cd into Burrow/ and fail on Burrow.Trust).
+mkdir -p "$tmp/root/Burrow"
+printf 'module Burrow.Trust where\n' > "$tmp/root/Burrow/Trust.agda"
+AGDA_BIN="$tmp/fake-agda" AGDA_CAPTURE="$tmp/capture" \
+ AGDA_CWD_CAPTURE="$tmp/cwd" bash "$root/scripts/agda-safe-check.sh" "$tmp/root/Burrow/Trust.agda"
+mapfile -t args < "$tmp/capture"
+[[ "${args[3]}" == Burrow/Trust.agda && "$(cat "$tmp/cwd")" == "$tmp/root" ]]
+# A module whose name does not match its path is refused.
+printf 'module Elsewhere where\n' > "$tmp/root/Burrow/Wrong.agda"
+if AGDA_BIN="$tmp/fake-agda" AGDA_CAPTURE="$tmp/capture" AGDA_CWD_CAPTURE="$tmp/cwd" \
+  bash "$root/scripts/agda-safe-check.sh" "$tmp/root/Burrow/Wrong.agda" 2>/dev/null; then
+  echo "a module/path mismatch was accepted" >&2; exit 1
+fi
 AGDA_BIN="$tmp/fake-agda" AGDA_CAPTURE="$tmp/capture" AGDA_CWD_CAPTURE="$tmp/cwd" \
  AGDA_LIBRARY_INCLUDE="$tmp/stdlib" bash "$root/scripts/agda-safe-check.sh" "$tmp/nested/Test.agda"
 mapfile -t args < "$tmp/capture"

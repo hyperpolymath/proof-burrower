@@ -17,10 +17,18 @@
 
 *Overall*: 2 of 14 tracked obligations proven.
 
-Estate grade (`hyperpolymath/mathesis` §5): the two Domain proofs are
-*Grade 3* — constructed in Agda and type-checked locally, not yet
-translated to an independent foundational system. Nothing else in this
-repository has a grade.
+Estate grade: the only proof grade is the *Proof Witness Grade* (PWG) of
+standards `3-practice/PROOF-POLICY.adoc` §8, which supersedes the Mathesis
+brief's "Grade 3" wording. A grade is derived from receipts, never asserted.
+DOM-1 and DOM-2 are theory; both are *ungraded* in this repository's own
+record (0 of 2 at `PWG-3` or above), because no committed receipt records
+the Agda version, the standard-library pin, the flags, the import cone and
+a comment-aware postulate scan (§8.2, §8.4), and no CI job checks them yet.
+A re-check on 2026-11-09 with Agda 2.7.0.1 and agda-stdlib 2.1 (commit
+97bc55e4) found both clean under the §2.1 flags, with an import cone of 34
+and 35 modules whose only postulates are Agda.Primitive's level primitives:
+that run would support `PWG-3` once its receipt lands here. Neither result
+has a Rocq or Lean recheck leg, so neither can rise above `PWG-3` yet.
 
 === Proofs Done
 
@@ -33,7 +41,7 @@ repository has a grade.
  Kripke countermodel shows the legacy marker has no soundness witness
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Trust.agda`
-|2026-11-01
+|2026-11-03 (#119)
 |`just proof-check-agda`, `agda --safe --without-K --cubical-compatible`,
  0 warnings; also clean under full `--cubical`
 
@@ -42,9 +50,21 @@ repository has a grade.
  (`no-launder`); promotion needs a per-record soundness witness
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Ledger.agda`
-|2026-11-01
+|2026-11-03 (#119)
 |As DOM-1
 |===
+
+*Scope, from the 2026-11-09 audit.* DOM-2 is a *specification*: the Rust
+`Ledger::read_all` (`crates/burrower-core/src/ledger.rs`) does not yet
+re-validate `extra.receipt` on read, so the read rule is not a property of
+the code. That Rust obligation belongs to Creusot/Pearlite and Verus
+(PROOF-POLICY §1.2) and is not yet tracked as a row. `no-launder` and
+`no-legacy-soundness` amount to "no map from inhabited evidence to ⊥" and do
+not need the Kripke model; `epi-is-not-factive` was the identity function on
+`¬ X` and has been restated as `¬ (∀ {A} → Epi A → A)`, proved from the
+legacy countermodel. `revalidate` and `promote` had implicit arguments no use
+site could infer; `revalidate` drops the unused one and `promote` takes its
+record explicitly.
 
 These two are the semantic record that was missing: before 2026-11-01 the
 receipt/warrant distinction existed only as a Rust `Option<ProofReceipt>`
@@ -122,7 +142,12 @@ panic-attack assail --proofs-only
 |===
 |Date |Change |By
 |2026-04-04 |Initial proof status tracking |Template
-|2026-11-01 |DOM-1 and DOM-2 proved in Agda (Grade 3); DOM-3..7 added;
+|2026-11-01 |DOM-1 and DOM-2 proved in Agda; DOM-3..7 added;
  `just proof-check-agda` moved to the estate canonical flags with an
  include path |Audit 2026-11-01
+|2026-11-09 |Grades restated as PROOF-POLICY §8 PWG (ungraded until a
+ receipt lands); `epi-is-not-factive` restated; `revalidate`/`promote`
+ made usable; wrapper fixed for hierarchical modules; proof recipes fail
+ when a prover is missing; dangerous-pattern scan ignores comments
+ |Proof audit 2026-11-09
 |===
