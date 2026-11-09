@@ -20,15 +20,21 @@
 Estate grade: the only proof grade is the *Proof Witness Grade* (PWG) of
 standards `3-practice/PROOF-POLICY.adoc` §8, which supersedes the Mathesis
 brief's "Grade 3" wording. A grade is derived from receipts, never asserted.
-DOM-1 and DOM-2 are theory; both are *ungraded* in this repository's own
-record (0 of 2 at `PWG-3` or above), because no committed receipt records
-the Agda version, the standard-library pin, the flags, the import cone and
-a comment-aware postulate scan (§8.2, §8.4), and no CI job checks them yet.
-A re-check on 2026-11-09 with Agda 2.7.0.1 and agda-stdlib 2.1 (commit
-97bc55e4) found both clean under the §2.1 flags, with an import cone of 34
-and 35 modules whose only postulates are Agda.Primitive's level primitives:
-that run would support `PWG-3` once its receipt lands here. Neither result
-has a Rocq or Lean recheck leg, so neither can rise above `PWG-3` yet.
+DOM-1 and DOM-2 are theory. Census, by obligation: `PWG-1` 0/2,
+`PWG-2ii` 0/2, `PWG-2i` 0/2, `PWG-3` 2/2, ungraded 0/2; neither carries
+`+foundation-diverse`.
+
+`PWG-3` is derived from the receipts in
+`docs/reports/2026-11-09-agda-cone-receipts.jsonl` (§8.2, §8.4), written by
+`scripts/ci/agda-cone-receipt.sh` at `22f6f723` with no uncommitted change
+under `verification/proofs/agda/`: Agda 2.7.0.1 (the pinned release),
+agda-stdlib 2.1 (archive SHA-256 `72ca3ea2…`), flags
+`--safe --without-K --cubical-compatible`, import cones of 34 modules
+(`Burrow.Trust`) and 35 (`Burrow.Ledger`) with a digest per file, and a
+clean comment-aware postulate scan (the only postulates are Agda.Primitive's
+universe-level primitives). The `agda` job in `proof-safety.yml` re-checks
+both modules and writes the same receipts on every run. Neither result has
+a Rocq or Lean recheck leg, so neither can rise above `PWG-3` yet.
 
 === Proofs Done
 
@@ -42,8 +48,9 @@ has a Rocq or Lean recheck leg, so neither can rise above `PWG-3` yet.
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Trust.agda`
 |2026-11-03 (#119)
-|`just proof-check-agda`, `agda --safe --without-K --cubical-compatible`,
- 0 warnings; also clean under full `--cubical`
+|CI `proof-safety.yml` job `agda` (pinned Agda 2.7.0.1, stdlib 2.1) and
+ receipt `docs/reports/2026-11-09-agda-cone-receipts.jsonl`; 0 warnings;
+ also clean under full `--cubical`
 
 |DOM-2
 |Ledger read path: no function from a stored record to the fact exists
@@ -145,8 +152,9 @@ panic-attack assail --proofs-only
 |2026-11-01 |DOM-1 and DOM-2 proved in Agda; DOM-3..7 added;
  `just proof-check-agda` moved to the estate canonical flags with an
  include path |Audit 2026-11-01
-|2026-11-09 |Grades restated as PROOF-POLICY §8 PWG (ungraded until a
- receipt lands); `epi-is-not-factive` restated; `revalidate`/`promote`
+|2026-11-09 |Grades restated as PROOF-POLICY §8 PWG and derived from
+ committed cone receipts (`PWG-3` 2/2); CI `agda` job with pinned
+ toolchain; `epi-is-not-factive` restated; `revalidate`/`promote`
  made usable; wrapper fixed for hierarchical modules; proof recipes fail
  when a prover is missing; dangerous-pattern scan ignores comments
  |Proof audit 2026-11-09

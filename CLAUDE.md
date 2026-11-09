@@ -68,7 +68,8 @@ file, not this summary.
 - An ECHIDNA result is *evidence about someone else's proof*. Burrower
   records the grade it was told and never asserts one it derived.
 
-Status for this repo: DOM-1 and DOM-2 (Agda theory) check under §2.1 but
-are ungraded until a receipt lands (0 of 2 at `PWG-3`). See
+Status for this repo: DOM-1 and DOM-2 (Agda theory) are `PWG-3` (2 of 2),
+derived from `docs/reports/2026-11-09-agda-cone-receipts.jsonl`; no Rocq or
+Lean leg yet. See
 `docs/status/PROOF-STATUS.adoc` and
 `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
