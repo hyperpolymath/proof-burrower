@@ -71,7 +71,8 @@ file, not this summary.
 
 Status for this repo: 2 of 14 tracked obligations proven (DOM-1, DOM-2,
 first-party Agda). Both are `ungraded` until the `agda` job in
-`.github/workflows/proof-safety.yml` has produced a receipt on `main`;
-`PWG-3` follows from that receipt, not from this sentence. See
+`.github/workflows/proof-safety.yml` has produced a receipt for the current
+`main` commit; `PWG-3` follows from that receipt, not from this sentence, and
+lapses if a later run on `main` fails or cannot be reproduced. See
 `docs/status/PROOF-STATUS.adoc` and
 `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.

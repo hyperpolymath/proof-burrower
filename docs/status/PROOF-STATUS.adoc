@@ -25,7 +25,8 @@ three but no source commit or digests. The `agda` job in
 `.github/workflows/proof-safety.yml` (Agda 2.7.0.1 and agda-stdlib 2.1,
 both digest-pinned; canonical §2.1 flags; prints the commit and the
 SHA-256 of each first-party source) produces that receipt. The first green
-run on `main` makes them `PWG-3`. No Rocq or Lean recheck exists, so
+run on `main` makes them `PWG-3`, for as long as the receipt is current:
+a later failing or unreproducible run on `main` withdraws the grade. No Rocq or Lean recheck exists, so
 nothing can be higher. Nothing else in this repository is a theory
 theorem, so nothing else carries a PWG.
 
@@ -41,8 +42,9 @@ theorem, so nothing else carries a PWG.
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Trust.agda`
 |2026-11-01
-|`just proof-check-agda`, `agda --safe --without-K --cubical-compatible`,
- 0 warnings; also clean under full `--cubical`
+|Historical local run only (no commit or digests recorded):
+ `agda --safe --without-K --cubical-compatible`, 0 warnings; also clean
+ under full `--cubical`. Current verification is the CI receipt.
 
 |DOM-2
 |Ledger read path: no function from a stored record to the fact exists

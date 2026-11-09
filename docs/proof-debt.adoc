@@ -22,9 +22,11 @@ reading of the situation.
 == (a) Discharged in this repo
 
 - `verification/proofs/agda/Burrow/Trust.agda` — the receipt/warrant
-  semantics (DOM-1). Grade 3: type-checks under
+  semantics (DOM-1). Mathesis Grade 3 on a historical local run: type-checks under
   `agda --safe --without-K --cubical-compatible`, 0 warnings, also clean
-  under full `--cubical`. Agda 2.7.0.1, agda-stdlib 2.4, 2026-11-01.
+  under full `--cubical`. Agda 2.7.0.1, agda-stdlib 2.4, 2026-11-01. Under
+  PROOF-POLICY §8 it is `ungraded` until the CI `agda` job (stdlib 2.1)
+  records a receipt for the current commit.
 - `verification/proofs/agda/Burrow/Ledger.agda` — the ledger read path and
   `no-launder` (DOM-2). Same toolchain, same flags, same date.
 
@@ -144,12 +146,15 @@ already retired for `TODO` markers — "grepping prose … measures the prose,
 not the proofs" — and it should be reported upstream rather than triaged
 here.
 
-The absence of markers is not a clean bill of health. It reflects an empty
-proof set: there is nothing to have escaped from.
+The absence of markers is not a clean bill of health. The only proofs are
+DOM-1 and DOM-2 in §(a), both under `--safe`, which rejects every marker the
+scan looks for; the markers say nothing about the twelve obligations that
+have no proof at all.
 
 == 3. What a Grade 3 result would look like here
 
-Mathesis §5: "A proof is Grade 3 if it type-checks locally in Agda but has
+This section uses the Mathesis grade, not the Proof Witness Grade of
+PROOF-POLICY §8 (`PWG-3`), which needs a CI receipt as well. Mathesis §5: "A proof is Grade 3 if it type-checks locally in Agda but has
 not been translated to an independent foundational system." For this
 repository the shortest honest path is one theorem about Burrower's own
 contract handling, checked with:

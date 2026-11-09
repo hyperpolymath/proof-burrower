@@ -1,0 +1,205 @@
+DIGEST 5a330d09e1171d55938427353b10d782
+FTypeSafety
+R275:288 Coq.Lists.List <> <> lib
+R306:320 Coq.Arith.Arith <> <> lib
+R338:350 Coq.Bool.Bool <> <> lib
+R360:372 Coq.Lists.List ListNotations <> mod
+ind 530:531 <> ty
+constr 547:551 <> TyNat
+constr 563:568 <> TyBool
+R556:557 TypeSafety <> ty:1 ind
+R572:573 TypeSafety <> ty:1 ind
+scheme 530:531 <> ty_rect
+scheme 530:531 <> ty_ind
+scheme 530:531 <> ty_rec
+scheme 530:531 <> ty_sind
+ind 606:609 <> expr
+constr 625:630 <> EConst
+constr 650:654 <> ETrue
+constr 668:673 <> EFalse
+constr 686:690 <> EPlus
+constr 720:722 <> EEq
+R637:640 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R634:636 Coq.Init.Datatypes <> nat ind
+R641:644 TypeSafety <> expr:3 ind
+R659:662 TypeSafety <> expr:3 ind
+R677:680 TypeSafety <> expr:3 ind
+R699:702 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R695:698 TypeSafety <> expr:3 ind
+R707:710 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R703:706 TypeSafety <> expr:3 ind
+R711:714 TypeSafety <> expr:3 ind
+R733:736 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R729:732 TypeSafety <> expr:3 ind
+R741:744 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R737:740 TypeSafety <> expr:3 ind
+R745:748 TypeSafety <> expr:3 ind
+scheme 606:609 <> expr_rect
+scheme 606:609 <> expr_ind
+scheme 606:609 <> expr_rec
+scheme 606:609 <> expr_sind
+ind 776:780 <> value
+constr 796:799 <> VNat
+constr 821:825 <> VBool
+R807:810 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R804:806 Coq.Init.Datatypes <> nat ind
+R811:815 TypeSafety <> value:5 ind
+R833:836 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R829:832 Coq.Init.Datatypes <> bool ind
+R837:841 TypeSafety <> value:5 ind
+scheme 776:780 <> value_rect
+scheme 776:780 <> value_ind
+scheme 776:780 <> value_rec
+scheme 776:780 <> value_sind
+ind 878:885 <> has_type
+constr 915:921 <> T_Const
+constr 965:970 <> T_True
+constr 1001:1007 <> T_False
+constr 1038:1043 <> T_Plus
+constr 1149:1152 <> T_Eq
+R893:896 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R889:892 TypeSafety <> expr ind
+R899:902 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R897:898 TypeSafety <> ty ind
+binder 932:932 <> n:9
+R935:942 TypeSafety <> has_type:7 ind
+R955:959 TypeSafety <> TyNat constr
+R945:950 TypeSafety <> EConst constr
+R952:952 TypeSafety <> n:9 var
+R975:982 TypeSafety <> has_type:7 ind
+R990:995 TypeSafety <> TyBool constr
+R984:988 TypeSafety <> ETrue constr
+R1011:1018 TypeSafety <> has_type:7 ind
+R1027:1032 TypeSafety <> TyBool constr
+R1020:1025 TypeSafety <> EFalse constr
+binder 1055:1056 <> e1:10
+binder 1058:1059 <> e2:11
+R1085:1088 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1068:1075 TypeSafety <> has_type:7 ind
+R1080:1084 TypeSafety <> TyNat constr
+R1077:1078 TypeSafety <> e1:10 var
+R1106:1115 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1089:1096 TypeSafety <> has_type:7 ind
+R1101:1105 TypeSafety <> TyNat constr
+R1098:1099 TypeSafety <> e2:11 var
+R1116:1123 TypeSafety <> has_type:7 ind
+R1139:1143 TypeSafety <> TyNat constr
+R1126:1130 TypeSafety <> EPlus constr
+R1132:1133 TypeSafety <> e1:10 var
+R1135:1136 TypeSafety <> e2:11 var
+binder 1166:1167 <> e1:12
+binder 1169:1170 <> e2:13
+R1196:1199 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1179:1186 TypeSafety <> has_type:7 ind
+R1191:1195 TypeSafety <> TyNat constr
+R1188:1189 TypeSafety <> e1:12 var
+R1217:1226 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1200:1207 TypeSafety <> has_type:7 ind
+R1212:1216 TypeSafety <> TyNat constr
+R1209:1210 TypeSafety <> e2:13 var
+R1227:1234 TypeSafety <> has_type:7 ind
+R1248:1253 TypeSafety <> TyBool constr
+R1237:1239 TypeSafety <> EEq constr
+R1241:1242 TypeSafety <> e1:12 var
+R1244:1245 TypeSafety <> e2:13 var
+scheme 878:885 <> has_type_ind
+scheme 878:885 <> has_type_sind
+ind 1285:1288 <> eval
+constr 1321:1327 <> E_Const
+constr 1370:1375 <> E_True
+constr 1408:1414 <> E_False
+constr 1448:1453 <> E_Plus
+constr 1572:1575 <> E_Eq
+R1296:1299 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1292:1295 TypeSafety <> expr ind
+R1305:1308 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1300:1304 TypeSafety <> value ind
+binder 1338:1338 <> n:16
+R1341:1344 TypeSafety <> eval:14 ind
+R1358:1361 TypeSafety <> VNat constr
+R1363:1363 TypeSafety <> n:16 var
+R1347:1352 TypeSafety <> EConst constr
+R1354:1354 TypeSafety <> n:16 var
+R1380:1383 TypeSafety <> eval:14 ind
+R1392:1396 TypeSafety <> VBool constr
+R1398:1401 Coq.Init.Datatypes <> true constr
+R1385:1389 TypeSafety <> ETrue constr
+R1418:1421 TypeSafety <> eval:14 ind
+R1431:1435 TypeSafety <> VBool constr
+R1437:1441 Coq.Init.Datatypes <> false constr
+R1423:1428 TypeSafety <> EFalse constr
+binder 1465:1466 <> e1:17
+binder 1468:1469 <> e2:18
+binder 1471:1472 <> n1:19
+binder 1474:1475 <> n2:20
+R1501:1504 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1484:1487 TypeSafety <> eval:14 ind
+R1493:1496 TypeSafety <> VNat constr
+R1498:1499 TypeSafety <> n1:19 var
+R1489:1490 TypeSafety <> e1:17 var
+R1522:1531 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1505:1508 TypeSafety <> eval:14 ind
+R1514:1517 TypeSafety <> VNat constr
+R1519:1520 TypeSafety <> n2:20 var
+R1510:1511 TypeSafety <> e2:18 var
+R1532:1535 TypeSafety <> eval:14 ind
+R1552:1555 TypeSafety <> VNat constr
+R1560:1562 Coq.Init.Peano <> ::nat_scope:x_'+'_x not
+R1558:1559 TypeSafety <> n1:19 var
+R1563:1564 TypeSafety <> n2:20 var
+R1538:1542 TypeSafety <> EPlus constr
+R1544:1545 TypeSafety <> e1:17 var
+R1547:1548 TypeSafety <> e2:18 var
+binder 1589:1590 <> e1:21
+binder 1592:1593 <> e2:22
+binder 1595:1596 <> n1:23
+binder 1598:1599 <> n2:24
+R1625:1628 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1608:1611 TypeSafety <> eval:14 ind
+R1617:1620 TypeSafety <> VNat constr
+R1622:1623 TypeSafety <> n1:23 var
+R1613:1614 TypeSafety <> e1:21 var
+R1646:1655 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1629:1632 TypeSafety <> eval:14 ind
+R1638:1641 TypeSafety <> VNat constr
+R1643:1644 TypeSafety <> n2:24 var
+R1634:1635 TypeSafety <> e2:22 var
+R1656:1659 TypeSafety <> eval:14 ind
+R1674:1678 TypeSafety <> VBool constr
+R1681:1687 Coq.Arith.PeanoNat Nat eqb def
+R1689:1690 TypeSafety <> n1:23 var
+R1692:1693 TypeSafety <> n2:24 var
+R1662:1664 TypeSafety <> EEq constr
+R1666:1667 TypeSafety <> e1:21 var
+R1669:1670 TypeSafety <> e2:22 var
+scheme 1285:1288 <> eval_ind
+scheme 1285:1288 <> eval_sind
+def 1730:1743 <> value_has_type
+R1750:1754 TypeSafety <> value ind
+binder 1746:1746 <> v:25
+R1762:1763 TypeSafety <> ty ind
+binder 1758:1758 <> t:26
+R1787:1787 TypeSafety <> t:26 var
+R1784:1784 TypeSafety <> v:25 var
+R1798:1801 TypeSafety <> VNat constr
+R1806:1810 TypeSafety <> TyNat constr
+R1817:1820 Coq.Init.Logic <> True ind
+R1826:1830 TypeSafety <> VBool constr
+R1835:1840 TypeSafety <> TyBool constr
+R1845:1848 Coq.Init.Logic <> True ind
+R1873:1877 Coq.Init.Logic <> False ind
+prf 1971:1984 <> type_soundness
+binder 1995:1995 <> e:29
+binder 1997:1997 <> t:30
+binder 1999:1999 <> v:31
+R2016:2019 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R2004:2011 TypeSafety <> has_type ind
+R2013:2013 TypeSafety <> e:29 var
+R2015:2015 TypeSafety <> t:30 var
+R2028:2031 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R2020:2023 TypeSafety <> eval ind
+R2025:2025 TypeSafety <> e:29 var
+R2027:2027 TypeSafety <> v:31 var
+R2032:2045 TypeSafety <> value_has_type def
+R2047:2047 TypeSafety <> v:31 var
+R2049:2049 TypeSafety <> t:30 var

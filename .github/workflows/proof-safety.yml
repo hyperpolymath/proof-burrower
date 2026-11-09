@@ -77,10 +77,10 @@ jobs:
           set -euo pipefail
           tc="$RUNNER_TEMP/agda"
           mkdir -p "$tc"
-          curl --fail --location --retry 3 -o "$tc/agda.tar.xz" \
+          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/agda.tar.xz" \
             https://github.com/agda/agda/releases/download/v2.7.0.1/Agda-v2.7.0.1-linux.tar.xz
           echo "975b515a14877ab6bce5bfc641e16c4a3ee52ca5d7f846577dee80aa2145db8a  $tc/agda.tar.xz" | sha256sum --check
-          curl --fail --location --retry 3 -o "$tc/stdlib.tar.gz" \
+          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/stdlib.tar.gz" \
             https://github.com/agda/agda-stdlib/archive/refs/tags/v2.1.tar.gz
           echo "72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431  $tc/stdlib.tar.gz" | sha256sum --check
           tar --no-same-owner -xJf "$tc/agda.tar.xz" -C "$tc"
@@ -100,10 +100,19 @@ jobs:
           agda --version
           echo "commit: $GITHUB_SHA"
           echo "flags: --safe --without-K --cubical-compatible"
-          echo "import cone (first-party):"
+          echo "stdlib: agda-stdlib v2.1, archive sha256 72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431"
+          echo "first-party sources:"
           sha256sum Burrow/Trust.agda Burrow/Ledger.agda burrow.agda-lib
-          find . -name '*.agdai' -delete
+          stdlib="$RUNNER_TEMP/agda/agda-stdlib-2.1"
+          find . "$stdlib" -name '*.agdai' -delete
           for m in Burrow/Trust.agda Burrow/Ledger.agda; do
             agda --no-default-libraries --library-file "$AGDA_LIBRARIES_FILE" \
               --safe --without-K --cubical-compatible "$m"
           done
+          # The transitive import cone is exactly the set of interfaces this
+          # check wrote. --safe is coinfective, so every module in it was
+          # itself checked under --safe: no postulate, no unsafe pragma.
+          echo "import cone (standard-library modules, sources pinned by the archive digest):"
+          find "$stdlib" -name '*.agdai' | sed "s|.*/agda/||; s|^src/||; s|\.agdai$||; s|/|.|g" | LC_ALL=C sort
+          echo "import cone (first-party modules):"
+          find . -name '*.agdai' | sed "s|.*/agda/||; s|^src/||; s|\.agdai$||; s|/|.|g" | LC_ALL=C sort
