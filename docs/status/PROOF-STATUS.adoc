@@ -17,10 +17,17 @@
 
 *Overall*: 2 of 14 tracked obligations proven.
 
-Estate grade (`hyperpolymath/mathesis` §5): the two Domain proofs are
-*Grade 3* — constructed in Agda and type-checked locally, not yet
-translated to an independent foundational system. Nothing else in this
-repository has a grade.
+Proof Witness Grade (`PROOF-POLICY` §8, normative): the two Domain proofs
+are `ungraded` until a receipt exists. A grade is derived from a receipt
+that records the Agda version, the standard-library pin, the flags in
+force and the import cone; the 2026-11-01 local run recorded the first
+three but no source commit or digests. The `agda` job in
+`.github/workflows/proof-safety.yml` (Agda 2.7.0.1 and agda-stdlib 2.1,
+both digest-pinned; canonical §2.1 flags; prints the commit and the
+SHA-256 of each first-party source) produces that receipt. The first green
+run on `main` makes them `PWG-3`. No Rocq or Lean recheck exists, so
+nothing can be higher. Nothing else in this repository is a theory
+theorem, so nothing else carries a PWG.
 
 === Proofs Done
 
@@ -122,7 +129,7 @@ panic-attack assail --proofs-only
 |===
 |Date |Change |By
 |2026-04-04 |Initial proof status tracking |Template
-|2026-11-01 |DOM-1 and DOM-2 proved in Agda (Grade 3); DOM-3..7 added;
+|2026-11-01 |DOM-1 and DOM-2 proved in Agda (receipt pending; see above); DOM-3..7 added;
  `just proof-check-agda` moved to the estate canonical flags with an
  include path |Audit 2026-11-01
 |===

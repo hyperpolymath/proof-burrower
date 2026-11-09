@@ -44,7 +44,9 @@ would be exactly the unfalsifiable "covered by tests" the policy rejects.
 
 - (none)
 
-No first-party proof exists, so no first-party axiom exists.
+The first-party proofs (DOM-1 `Burrow/Trust.agda`, DOM-2
+`Burrow/Ledger.agda`) check under `--safe`, which rejects `postulate`, so
+no first-party axiom exists.
 
 == 1. Debt
 

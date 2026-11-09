@@ -1351,8 +1351,8 @@ proof-check-idris2:
     set -euo pipefail
     echo "=== Checking Idris2 proofs ==="
     if ! command -v idris2 &>/dev/null; then
-        echo "SKIP: idris2 not installed"
-        exit 0
+        echo "NOT RUN: idris2 not installed — a missing prover is an open obligation, not a pass (PROOF-POLICY §2.1)" >&2
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/idris2 -name '*.idr' 2>/dev/null); do
@@ -1376,8 +1376,8 @@ proof-check-lean4:
     set -euo pipefail
     echo "=== Checking Lean4 proofs ==="
     if ! command -v lean &>/dev/null; then
-        echo "SKIP: lean not installed"
-        exit 0
+        echo "NOT RUN: lean not installed — a missing prover is an open obligation, not a pass (PROOF-POLICY §2.1)" >&2
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/lean4 -name '*.lean' 2>/dev/null); do
@@ -1401,8 +1401,8 @@ proof-check-agda:
     set -euo pipefail
     echo "=== Checking Agda proofs ==="
     if ! command -v agda &>/dev/null; then
-        echo "SKIP: agda not installed"
-        exit 0
+        echo "NOT RUN: agda not installed — a missing prover is an open obligation, not a pass (PROOF-POLICY §2.1)" >&2
+        exit 1
     fi
     # Estate canonical invocation (standards 3-practice/PROOF-POLICY.adoc
     # §2.1). `--cubical-compatible` implies `--without-K`; both are named
@@ -1441,8 +1441,8 @@ proof-check-coq:
     set -euo pipefail
     echo "=== Checking Coq proofs ==="
     if ! command -v coqc &>/dev/null; then
-        echo "SKIP: coqc not installed"
-        exit 0
+        echo "NOT RUN: coqc not installed — a missing prover is an open obligation, not a pass (PROOF-POLICY §2.1)" >&2
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/coq -name '*.v' 2>/dev/null); do

@@ -1,0 +1,5 @@
+-- SPDX-License-Identifier: MPL-2.0
+-- Agda library for proof-burrower's first-party proofs (DOM-1, DOM-2).
+name: burrow
+depend: standard-library
+include: .

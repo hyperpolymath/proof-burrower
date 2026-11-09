@@ -45,7 +45,7 @@ file, not this summary.
 
 | Obligation | Verifier |
 |------------|----------|
-| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot |
+| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot with Pearlite contracts, and Verus (PROOF-POLICY §1.2) |
 | APIs, ABIs, wire formats, engineering properties | Idris2 |
 | Theory (anything true of any implementation) | Agda, rechecked in Rocq and Lean |
 
@@ -53,10 +53,15 @@ file, not this summary.
   `agda --safe --without-K --cubical-compatible <module.agda>`.
   `--cubical-compatible` is not full `--cubical`. Pin and record the Agda
   version and standard library with each source commit and proof result.
-- Grade ladder (Mathesis §5): Grade 3 = type-checks locally in Agda,
-  untranslated; 2i = one independent system; 2ii = two, the second
-  non-DTT (e.g. Isabelle/HOL); 1 = machine-checked via a verified checker
-  API in headless CI. Never flatten this into a confidence percentage.
+- Proof Witness Grades (PROOF-POLICY §8, normative; always write the `PWG-`
+  prefix): `PWG-3` = the Agda source is checked under the §2.1 invocation
+  with a receipt (Agda version, stdlib pin, flags, import cone);
+  `PWG-2i` = plus one counted Rocq or Lean recheck (kernel-accepted and
+  §2.2 `RECONCILED`); `PWG-2ii` = plus both; `PWG-1` = every counted
+  witness has a current per-commit receipt from a headless, pinned run.
+  Engineering proofs (Creusot, Verus, SPARK, Idris2) carry no PWG (§8.1).
+  Grades are derived from receipts, never asserted, and never flattened
+  into a percentage.
 - Missing tools, incompatible dependencies or failed theorems are open
   obligations. Do not skip proofs or weaken flags to make a check green.
 - Escape hatches follow `docs/TRUSTED-BASE-REDUCTION-POLICY.adoc` and are
@@ -64,7 +69,9 @@ file, not this summary.
 - An ECHIDNA result is *evidence about someone else's proof*. Burrower
   records the grade it was told and never asserts one it derived.
 
-Status for this repo: 0 of 7 obligations proven; no first-party Agda
-theorem yet, so nothing here is at Grade 3. See
+Status for this repo: 2 of 14 tracked obligations proven (DOM-1, DOM-2,
+first-party Agda). Both are `ungraded` until the `agda` job in
+`.github/workflows/proof-safety.yml` has produced a receipt on `main`;
+`PWG-3` follows from that receipt, not from this sentence. See
 `docs/status/PROOF-STATUS.adoc` and
 `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
