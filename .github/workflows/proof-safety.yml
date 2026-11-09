@@ -65,11 +65,12 @@ jobs:
         run: |
           bash tests/e2e.sh
   agda:
-    # DOM-1/DOM-2 (Agda theory). PROOF-POLICY §2.1 invocation with the
+    # DOM-1/DOM-2 (Agda theory). The check-run name agda-proofs is the
+    # contract echidna's W0 gate (check 12) reads. PROOF-POLICY §2.1 invocation with the
     # pinned Agda 2.7.0.1 and agda-stdlib 2.1 (digests in setup-agda.sh),
     # then the §8.2 cone receipt each theorem's PWG is derived from. A
     # missing or wrong toolchain fails the job; it never skips.
-    name: Agda proofs (DOM-1, DOM-2)
+    name: agda-proofs
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
