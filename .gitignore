@@ -118,3 +118,10 @@ dist/
 /exports/*.lgt
 composer/*.beam
 composer/build/
+
+# Coq/Rocq build artefacts (written by `just proof-check-coq`)
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
