@@ -45,7 +45,7 @@ file, not this summary.
 
 | Obligation | Verifier |
 |------------|----------|
-| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot |
+| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot with Pearlite contracts, and Verus (§1.2) |
 | APIs, ABIs, wire formats, engineering properties | Idris2 |
 | Theory (anything true of any implementation) | Agda, rechecked in Rocq and Lean |
 
@@ -53,10 +53,14 @@ file, not this summary.
   `agda --safe --without-K --cubical-compatible <module.agda>`.
   `--cubical-compatible` is not full `--cubical`. Pin and record the Agda
   version and standard library with each source commit and proof result.
-- Grade ladder (Mathesis §5): Grade 3 = type-checks locally in Agda,
-  untranslated; 2i = one independent system; 2ii = two, the second
-  non-DTT (e.g. Isabelle/HOL); 1 = machine-checked via a verified checker
-  API in headless CI. Never flatten this into a confidence percentage.
+- Proof grades are PROOF-POLICY §8 *Proof Witness Grades*, weakest to
+  strongest, always with the
+  prefix: `PWG-3` (Agda checks under §2.1, with a receipt) < `PWG-2i` (one
+  Rocq or Lean leg, kernel-checked and RECONCILED) < `PWG-2ii` (both legs)
+  < `PWG-1` (per-commit receipts from a pinned headless checker). A non-DTT
+  witness such as Isabelle/HOL is the tag `+foundation-diverse`, not a
+  grade. Grades are derived from receipts, never asserted. Report a census
+  with its denominator, never a percentage.
 - Missing tools, incompatible dependencies or failed theorems are open
   obligations. Do not skip proofs or weaken flags to make a check green.
 - Escape hatches follow `docs/TRUSTED-BASE-REDUCTION-POLICY.adoc` and are
@@ -64,7 +68,8 @@ file, not this summary.
 - An ECHIDNA result is *evidence about someone else's proof*. Burrower
   records the grade it was told and never asserts one it derived.
 
-Status for this repo: 0 of 7 obligations proven; no first-party Agda
-theorem yet, so nothing here is at Grade 3. See
+Status for this repo: DOM-1 and DOM-2 (Agda theory) are `PWG-3` (2 of 2),
+derived from `docs/reports/2026-11-09-agda-cone-receipts.jsonl`; no Rocq or
+Lean leg yet. See
 `docs/status/PROOF-STATUS.adoc` and
 `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.

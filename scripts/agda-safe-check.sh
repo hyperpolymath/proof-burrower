@@ -18,22 +18,46 @@ if [[ "$checker" != /* ]]; then
 fi
 "$checker" --version >&2
 include_args=()
+# The pinned toolchain (scripts/ci/setup-agda.sh) names its libraries file in
+# AGDA_LIBRARIES_FILE. Agda reads no such variable, only --library-file, so
+# without this a root carrying an .agda-lib (burrow.agda-lib depends on
+# standard-library-2.1) resolves against ~/.config/agda/libraries instead.
+if [[ -n "${AGDA_LIBRARIES_FILE:-}" ]]; then
+  if [[ ! -f "$AGDA_LIBRARIES_FILE" ]]; then
+    echo "Agda libraries file unavailable: $AGDA_LIBRARIES_FILE" >&2
+    exit 2
+  fi
+  include_args=(--no-default-libraries --library-file "$(realpath -e -- "$AGDA_LIBRARIES_FILE")")
+fi
 if [[ -n "${AGDA_LIBRARY_INCLUDE:-}" ]]; then
   if [[ ! -d "$AGDA_LIBRARY_INCLUDE" ]]; then
     echo "Agda library source directory unavailable: $AGDA_LIBRARY_INCLUDE" >&2
     exit 2
   fi
-  include_args=(-i "$(realpath -e -- "$AGDA_LIBRARY_INCLUDE")")
+  include_args+=(-i "$(realpath -e -- "$AGDA_LIBRARY_INCLUDE")")
 fi
 for source in "$@"; do
   if [[ "$source" == -* || "$source" != *.agda || ! -f "$source" ]]; then
     echo "Not a readable Agda source (options forbidden): $source" >&2
     exit 2
   fi
-  module="$(realpath -e -- "$source")"
-  # Module Properties in path/to/Properties.agda must be checked from
-  # path/to, rather than forcing a false module/path mismatch at repo root.
-  ( cd -- "$(dirname -- "$module")" &&
+  file="$(realpath -e -- "$source")"
+  # Agda checks a module from its include root: module Burrow.Trust in
+  # path/to/Burrow/Trust.agda is checked from path/to as Burrow/Trust.agda.
+  # Read the module name from the file and walk up one directory per
+  # component, so hierarchical modules work as well as flat ones.
+  name="$(sed -nE 's/^[[:space:]]*module[[:space:]]+([A-Za-z0-9_.]+)[[:space:]].*/\1/p' "$file" | head -n 1)"
+  if [[ -z "$name" ]]; then
+    echo "No module declaration in $source" >&2
+    exit 2
+  fi
+  rel="${name//.//}.agda"
+  root="${file%/"$rel"}"
+  if [[ "$root" == "$file" || "$root/$rel" != "$file" ]]; then
+    echo "Module $name does not match its path $source" >&2
+    exit 2
+  fi
+  ( cd -- "$root" &&
     "$checker" --safe --without-K --cubical-compatible \
-      "${include_args[@]}" "$(basename -- "$module")" )
+      "${include_args[@]}" "$rel" )
 done

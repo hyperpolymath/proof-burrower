@@ -1351,8 +1351,10 @@ proof-check-idris2:
     set -euo pipefail
     echo "=== Checking Idris2 proofs ==="
     if ! command -v idris2 &>/dev/null; then
-        echo "SKIP: idris2 not installed"
-        exit 0
+        # A missing prover is an open obligation, never a pass
+        # (PROOF-POLICY §2.1: do not skip proofs to make a check green).
+        echo "NOT RUN: idris2 not installed"
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/idris2 -name '*.idr' 2>/dev/null); do
@@ -1376,8 +1378,10 @@ proof-check-lean4:
     set -euo pipefail
     echo "=== Checking Lean4 proofs ==="
     if ! command -v lean &>/dev/null; then
-        echo "SKIP: lean not installed"
-        exit 0
+        # A missing prover is an open obligation, never a pass
+        # (PROOF-POLICY §2.1: do not skip proofs to make a check green).
+        echo "NOT RUN: lean not installed"
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/lean4 -name '*.lean' 2>/dev/null); do
@@ -1401,8 +1405,10 @@ proof-check-agda:
     set -euo pipefail
     echo "=== Checking Agda proofs ==="
     if ! command -v agda &>/dev/null; then
-        echo "SKIP: agda not installed"
-        exit 0
+        # A missing prover is an open obligation, never a pass
+        # (PROOF-POLICY §2.1: do not skip proofs to make a check green).
+        echo "NOT RUN: agda not installed"
+        exit 1
     fi
     # Estate canonical invocation (standards 3-practice/PROOF-POLICY.adoc
     # §2.1). `--cubical-compatible` implies `--without-K`; both are named
@@ -1441,8 +1447,10 @@ proof-check-coq:
     set -euo pipefail
     echo "=== Checking Coq proofs ==="
     if ! command -v coqc &>/dev/null; then
-        echo "SKIP: coqc not installed"
-        exit 0
+        # A missing prover is an open obligation, never a pass
+        # (PROOF-POLICY §2.1: do not skip proofs to make a check green).
+        echo "NOT RUN: coqc not installed"
+        exit 1
     fi
     ERRORS=0
     for f in $(find verification/proofs/coq -name '*.v' 2>/dev/null); do
@@ -1460,26 +1468,10 @@ proof-check-coq:
     fi
     echo "PASS: All Coq proofs verified"
 
-# Scan for dangerous patterns in proof files (believe_me, sorry, Admitted, etc.)
+# Scan proof sources for escape hatches (believe_me, postulate, sorry,
+# Admitted, unsafe pragmas, ...), ignoring comments
 proof-scan-dangerous:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "=== Scanning for dangerous patterns in proofs ==="
-    DANGEROUS=0
-    PATTERNS="believe_me|assert_total|postulate|sorry|Admitted|unsafeCoerce|Obj\.magic"
-    for f in $(find verification/proofs -name '*.idr' -o -name '*.lean' -o -name '*.agda' -o -name '*.v' 2>/dev/null); do
-        MATCHES=$(grep -nE "$PATTERNS" "$f" 2>/dev/null || true)
-        if [ -n "$MATCHES" ]; then
-            echo "  DANGEROUS: $f"
-            echo "$MATCHES" | sed 's/^/    /'
-            DANGEROUS=$((DANGEROUS + 1))
-        fi
-    done
-    if [ "$DANGEROUS" -gt 0 ]; then
-        echo "FAIL: $DANGEROUS file(s) contain dangerous patterns"
-        exit 1
-    fi
-    echo "PASS: No dangerous patterns found in proofs"
+    bash scripts/proof-scan-dangerous.sh verification/proofs
 
 # Show proof status summary
 proof-status:
