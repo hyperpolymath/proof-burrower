@@ -1342,8 +1342,19 @@ help-me:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Check all formal proofs (Idris2 + Lean4 + Agda + Coq)
-proof-check-all: proof-check-idris2 proof-check-lean4 proof-check-agda proof-check-coq proof-scan-dangerous
-    @echo "=== All proof checks complete ==="
+# Runs every checker even when an earlier one fails, then fails if any did.
+proof-check-all:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    failed=()
+    for r in proof-check-idris2 proof-check-lean4 proof-check-agda proof-check-coq proof-scan-dangerous; do
+        just "$r" || failed+=("$r")
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "=== Proof checks FAILED or NOT RUN: ${failed[*]} ===" >&2
+        exit 1
+    fi
+    echo "=== All proof checks complete ==="
 
 # Check Idris2 proofs (ABI, types, dependent type proofs)
 proof-check-idris2:

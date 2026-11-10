@@ -22,11 +22,13 @@ reading of the situation.
 == (a) Discharged in this repo
 
 - `verification/proofs/agda/Burrow/Trust.agda` — the receipt/warrant
-  semantics (DOM-1). Grade 3: type-checks under
-  `agda --safe --without-K --cubical-compatible`, 0 warnings, also clean
-  under full `--cubical`. Agda 2.7.0.1, agda-stdlib 2.4, 2026-11-01.
+  semantics (DOM-1). `PWG-3` (PROOF-POLICY §8), derived from the committed
+  cone receipts in `docs/reports/2026-11-09-agda-cone-receipts.jsonl`: Agda
+  2.7.0.1, agda-stdlib 2.1, `--safe --without-K --cubical-compatible`, 0
+  warnings. The CI `proof-safety.yml` job `agda-proofs` rechecks it on every
+  run. Proved 2026-11-03 (#119); see `docs/status/PROOF-STATUS.adoc`.
 - `verification/proofs/agda/Burrow/Ledger.agda` — the ledger read path and
-  `no-launder` (DOM-2). Same toolchain, same flags, same date.
+  `no-launder` (DOM-2). Same toolchain, flags, receipts and grade.
 
 Entries are removed from this section once a translation leg or an
 engineering proof supersedes them.
@@ -44,7 +46,9 @@ would be exactly the unfalsifiable "covered by tests" the policy rejects.
 
 - (none)
 
-No first-party proof exists, so no first-party axiom exists.
+The first-party proofs (DOM-1 `Burrow/Trust.agda`, DOM-2
+`Burrow/Ledger.agda`) check under `--safe`, which rejects `postulate`, so
+no first-party axiom exists.
 
 == 1. Debt
 
@@ -142,15 +146,22 @@ already retired for `TODO` markers — "grepping prose … measures the prose,
 not the proofs" — and it should be reported upstream rather than triaged
 here.
 
-The absence of markers is not a clean bill of health. It reflects an empty
-proof set: there is nothing to have escaped from.
+The absence of markers is not a clean bill of health. The only proofs are
+DOM-1 and DOM-2 in §(a). Their CI check runs under `--safe`, which rejects
+`postulate` and the unsafe pragmas and options (`TERMINATING`,
+`NON_TERMINATING`, `--type-in-type` and the like) in the whole import cone.
+That check and the marker scan are different things: the scan is textual and
+covers other languages' markers (`sorry`, `Admitted`, `believe_me`), which
+`--safe` neither knows nor replaces. Neither says anything about the twelve
+obligations that have no proof at all.
 
-== 3. What a Grade 3 result would look like here
+== 3. What a `PWG-3` result looks like here
 
-Mathesis §5: "A proof is Grade 3 if it type-checks locally in Agda but has
-not been translated to an independent foundational system." For this
-repository the shortest honest path is one theorem about Burrower's own
-contract handling, checked with:
+PROOF-POLICY §8 grades a theory theorem `PWG-3` when its Agda source checks
+under the §2.1 invocation and a receipt records the checker, the
+standard-library pin, the flags and the import cone. DOM-1 and DOM-2 meet
+this. For any further theorem about Burrower's own contract handling, the
+path is the same, checked with:
 
 [source,shell]
 ----
