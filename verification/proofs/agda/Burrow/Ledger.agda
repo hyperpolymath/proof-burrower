@@ -59,11 +59,13 @@ read (storedClaim w t) = epi w t
 -- Promotion is not a property of the record.  It needs a witness for that
 -- record's warrant, supplied by the reader — i.e. by re-running the
 -- validation against what is actually stored.
+-- The record is explicit: a projection cannot be inverted, so Agda could
+-- never infer it from the soundness witness's type at a use site.
 promote :
-  ∀ {wℓ} {A : Set} {s : StoredClaim {wℓ = wℓ} A} →
+  ∀ {wℓ} {A : Set} (s : StoredClaim {wℓ = wℓ} A) →
   Soundness (StoredClaim.warr s) →
   ReceiptOn (StoredClaim.warr s)
-promote {s = storedClaim _ t} snd = receiptOn t snd
+promote (storedClaim _ t) snd = receiptOn t snd
 
 -- ── The legacy record ──────────────────────────────────────────────────
 --

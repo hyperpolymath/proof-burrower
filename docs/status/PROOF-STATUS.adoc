@@ -17,18 +17,24 @@
 
 *Overall*: 2 of 14 tracked obligations proven.
 
-Proof Witness Grade (`PROOF-POLICY` §8, normative): the two Domain proofs
-are `ungraded` until a receipt exists. A grade is derived from a receipt
-that records the Agda version, the standard-library pin, the flags in
-force and the import cone; the 2026-11-01 local run recorded the first
-three but no source commit or digests. The `agda` job in
-`.github/workflows/proof-safety.yml` (Agda 2.7.0.1 and agda-stdlib 2.1,
-both digest-pinned; canonical §2.1 flags; prints the commit and the
-SHA-256 of each first-party source) produces that receipt. The first green
-run on `main` makes them `PWG-3`, for as long as the receipt is current:
-a later failing or unreproducible run on `main` withdraws the grade. No Rocq or Lean recheck exists, so
-nothing can be higher. Nothing else in this repository is a theory
-theorem, so nothing else carries a PWG.
+Estate grade: the only proof grade is the *Proof Witness Grade* (PWG) of
+standards `3-practice/PROOF-POLICY.adoc` §8, which supersedes the Mathesis
+brief's "Grade 3" wording. A grade is derived from receipts, never asserted.
+DOM-1 and DOM-2 are theory. Census, by obligation: `PWG-1` 0/2,
+`PWG-2ii` 0/2, `PWG-2i` 0/2, `PWG-3` 2/2, ungraded 0/2; neither carries
+`+foundation-diverse`.
+
+`PWG-3` is derived from the receipts in
+`docs/reports/2026-11-09-agda-cone-receipts.jsonl` (§8.2, §8.4), written by
+`scripts/ci/agda-cone-receipt.sh` at `22f6f723` with no uncommitted change
+under `verification/proofs/agda/`: Agda 2.7.0.1 (the pinned release),
+agda-stdlib 2.1 (archive SHA-256 `72ca3ea2…`), flags
+`--safe --without-K --cubical-compatible`, import cones of 34 modules
+(`Burrow.Trust`) and 35 (`Burrow.Ledger`) with a digest per file, and a
+clean comment-aware postulate scan (the only postulates are Agda.Primitive's
+universe-level primitives). The `agda` job in `proof-safety.yml` re-checks
+both modules and writes the same receipts on every run. Neither result has
+a Rocq or Lean recheck leg, so neither can rise above `PWG-3` yet.
 
 === Proofs Done
 
@@ -41,19 +47,31 @@ theorem, so nothing else carries a PWG.
  Kripke countermodel shows the legacy marker has no soundness witness
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Trust.agda`
-|2026-11-01
-|Historical local run only (no commit or digests recorded):
- `agda --safe --without-K --cubical-compatible`, 0 warnings; also clean
- under full `--cubical`. Current verification is the CI receipt.
+|2026-11-03 (#119)
+|CI `proof-safety.yml` job `agda` (pinned Agda 2.7.0.1, stdlib 2.1) and
+ receipt `docs/reports/2026-11-09-agda-cone-receipts.jsonl`; 0 warnings;
+ also clean under full `--cubical`
 
 |DOM-2
 |Ledger read path: no function from a stored record to the fact exists
  (`no-launder`); promotion needs a per-record soundness witness
  |Agda 2.7.0.1
 |`verification/proofs/agda/Burrow/Ledger.agda`
-|2026-11-01
+|2026-11-03 (#119)
 |As DOM-1
 |===
+
+*Scope, from the 2026-11-09 audit.* DOM-2 is a *specification*: the Rust
+`Ledger::read_all` (`crates/burrower-core/src/ledger.rs`) does not yet
+re-validate `extra.receipt` on read, so the read rule is not a property of
+the code. That Rust obligation belongs to Creusot/Pearlite and Verus
+(PROOF-POLICY §1.2) and is not yet tracked as a row. `no-launder` and
+`no-legacy-soundness` amount to "no map from inhabited evidence to ⊥" and do
+not need the Kripke model; `epi-is-not-factive` was the identity function on
+`¬ X` and has been restated as `¬ (∀ {A} → Epi A → A)`, proved from the
+legacy countermodel. `revalidate` and `promote` had implicit arguments no use
+site could infer; `revalidate` drops the unused one and `promote` takes its
+record explicitly.
 
 These two are the semantic record that was missing: before 2026-11-01 the
 receipt/warrant distinction existed only as a Rust `Option<ProofReceipt>`
@@ -131,7 +149,13 @@ panic-attack assail --proofs-only
 |===
 |Date |Change |By
 |2026-04-04 |Initial proof status tracking |Template
-|2026-11-01 |DOM-1 and DOM-2 proved in Agda (receipt pending; see above); DOM-3..7 added;
+|2026-11-01 |DOM-1 and DOM-2 proved in Agda; DOM-3..7 added;
  `just proof-check-agda` moved to the estate canonical flags with an
  include path |Audit 2026-11-01
+|2026-11-09 |Grades restated as PROOF-POLICY §8 PWG and derived from
+ committed cone receipts (`PWG-3` 2/2); CI `agda` job with pinned
+ toolchain; `epi-is-not-factive` restated; `revalidate`/`promote`
+ made usable; wrapper fixed for hierarchical modules; proof recipes fail
+ when a prover is missing; dangerous-pattern scan ignores comments
+ |Proof audit 2026-11-09
 |===

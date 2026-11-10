@@ -39,7 +39,7 @@
 
 module Burrow.Trust where
 
-open import Agda.Primitive using (Level; lsuc; _⊔_)
+open import Agda.Primitive using (Level; lzero; lsuc; _⊔_)
 open import Data.Empty using (⊥)
 open import Data.Unit using (⊤; tt)
 
@@ -98,19 +98,11 @@ receipt-is-factive :
   ReceiptOn warr → A
 receipt-is-factive (receiptOn e (soundness v)) = v e
 
--- An unvalidated token is not factive, by construction: there is no
--- elimination for `Epi` that reaches `A`.
-epi-is-not-factive :
-  ∀ {wℓ} {A : Set} {warr : Warrant {wℓ = wℓ} A} →
-  ¬ (Epi {wℓ = wℓ} A → A) →
-  ¬ (Epi {wℓ = wℓ} A → A)
-epi-is-not-factive = λ f → f
-
 -- Re-validation lifts a token to the fact.  This is the positive form of
 -- the ledger read rule: a stored `extra.receipt` counts only once
 -- `Soundness` exists for it.
 revalidate :
-  ∀ {wℓ} {A : Set} {warr : Warrant {wℓ = wℓ} A} →
+  ∀ {wℓ} {A : Set} →
   (e : Epi {wℓ = wℓ} A) →
   Soundness (Epi.warrant e) →
   A
@@ -185,6 +177,14 @@ legacy-token = marker-printed
 
 legacy-epi : Epi (Checked marker)
 legacy-epi = epi legacy-warrant marker-printed
+
+-- An unvalidated token is not factive: no uniform function takes every
+-- token to the fact it purports to support, because the legacy token
+-- would then yield `Checked marker`, which is empty.  (This replaces a
+-- statement of the form `¬ X → ¬ X`, which was the identity function and
+-- said nothing; proof audit 2026-11-09.)
+epi-is-not-factive : ¬ (∀ {A : Set} → Epi {wℓ = lzero} A → A)
+epi-is-not-factive f = not-checked-at-marker (f legacy-epi)
 
 -- …and no soundness witness for it can exist.  This is the formal content
 -- of "a warrant, not a receipt".

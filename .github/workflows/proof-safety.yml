@@ -65,54 +65,39 @@ jobs:
         run: |
           bash tests/e2e.sh
   agda:
-    name: Agda proofs (PROOF-POLICY §2.1 canonical invocation)
+    # DOM-1/DOM-2 (Agda theory). The check-run name agda-proofs is the
+    # contract echidna's W0 gate (check 12) reads. PROOF-POLICY §2.1 invocation with the
+    # pinned Agda 2.7.0.1 and agda-stdlib 2.1 (digests in setup-agda.sh),
+    # then the §8.2 cone receipt each theorem's PWG is derived from. A
+    # missing or wrong toolchain fails the job; it never skips.
+    name: agda-proofs
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Install pinned, digest-checked Agda and standard library
+      - name: Install pinned Agda and standard library
+        run: bash scripts/ci/setup-agda.sh
+      - name: Type-check under the §2.1 invocation (through the wrapper)
         run: |
           set -euo pipefail
-          tc="$RUNNER_TEMP/agda"
-          mkdir -p "$tc"
-          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/agda.tar.xz" \
-            https://github.com/agda/agda/releases/download/v2.7.0.1/Agda-v2.7.0.1-linux.tar.xz
-          echo "975b515a14877ab6bce5bfc641e16c4a3ee52ca5d7f846577dee80aa2145db8a  $tc/agda.tar.xz" | sha256sum --check
-          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/stdlib.tar.gz" \
-            https://github.com/agda/agda-stdlib/archive/refs/tags/v2.1.tar.gz
-          echo "72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431  $tc/stdlib.tar.gz" | sha256sum --check
-          tar --no-same-owner -xJf "$tc/agda.tar.xz" -C "$tc"
-          tar --no-same-owner -xzf "$tc/stdlib.tar.gz" -C "$tc"
-          printf '%s\n' "$tc/agda-stdlib-2.1/standard-library.agda-lib" \
-            "$GITHUB_WORKSPACE/verification/proofs/agda/burrow.agda-lib" > "$tc/libraries"
-          {
-            echo "Agda_datadir=$tc/Agda-v2.7.0.1/data"
-            echo "AGDA_LIBRARIES_FILE=$tc/libraries"
-            echo "LC_ALL=C.UTF-8"
-          } >> "$GITHUB_ENV"
-          echo "$tc/Agda-v2.7.0.1/bin" >> "$GITHUB_PATH"
-      - name: Type-check DOM-1 and DOM-2 and print the receipt
-        working-directory: verification/proofs/agda
+          stdlib_src="$(dirname "$(head -n 1 "$AGDA_LIBRARIES_FILE")")/src"
+          AGDA_LIBRARY_INCLUDE="$stdlib_src" bash scripts/agda-safe-check.sh \
+            verification/proofs/agda/Burrow/Trust.agda verification/proofs/agda/Burrow/Ledger.agda
+      - name: Record the §8.2 cone receipts
+        env:
+          AGDA_STDLIB_SHA256: 72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431
         run: |
           set -euo pipefail
-          agda --version
-          echo "commit: $GITHUB_SHA"
-          echo "flags: --safe --without-K --cubical-compatible"
-          echo "stdlib: agda-stdlib v2.1, archive sha256 72ca3ea25094efa0439e106f0d949330414232ec4cc5c3c3316e7e70dd06d431"
-          echo "first-party sources:"
-          sha256sum Burrow/Trust.agda Burrow/Ledger.agda burrow.agda-lib
-          stdlib="$RUNNER_TEMP/agda/agda-stdlib-2.1"
-          find . "$stdlib" -name '*.agdai' -delete
+          bash scripts/ci/test-agda-cone-receipt.sh
+          receipts="$RUNNER_TEMP/agda-cone-receipts.jsonl"
+          : > "$receipts"
           for m in Burrow/Trust.agda Burrow/Ledger.agda; do
-            agda --no-default-libraries --library-file "$AGDA_LIBRARIES_FILE" \
-              --safe --without-K --cubical-compatible "$m"
+            (cd verification/proofs/agda && bash ../../../scripts/ci/agda-cone-receipt.sh "$m") >> "$receipts"
           done
-          # The transitive import cone is exactly the set of interfaces this
-          # check wrote. --safe is coinfective, so every module in it was
-          # itself checked under --safe: no postulate, no unsafe pragma.
-          echo "import cone (standard-library modules, sources pinned by the archive digest):"
-          find "$stdlib" -name '*.agdai' | sed "s|.*/agda/||; s|^src/||; s|\.agdai$||; s|/|.|g" | LC_ALL=C sort
-          echo "import cone (first-party modules):"
-          find . -name '*.agdai' | sed "s|.*/agda/||; s|^src/||; s|\.agdai$||; s|/|.|g" | LC_ALL=C sort
+          cat "$receipts"
+          {
+            echo '## PROOF-POLICY §8.2 cone receipts (DOM-1, DOM-2)'
+            jq -r '"\(.source.entrypoint) at \(.source.commit): \(.toolchain.agda), \(.import_cone.count) modules, scan \(.postulate_scan.result)"' "$receipts"
+          } >> "$GITHUB_STEP_SUMMARY"

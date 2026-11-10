@@ -45,7 +45,7 @@ file, not this summary.
 
 | Obligation | Verifier |
 |------------|----------|
-| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot with Pearlite contracts, and Verus (PROOF-POLICY §1.2) |
+| First-party Rust (`burrower-core`, `-cli`, `-wasm`) | Creusot with Pearlite contracts, and Verus (§1.2) |
 | APIs, ABIs, wire formats, engineering properties | Idris2 |
 | Theory (anything true of any implementation) | Agda, rechecked in Rocq and Lean |
 
@@ -53,15 +53,14 @@ file, not this summary.
   `agda --safe --without-K --cubical-compatible <module.agda>`.
   `--cubical-compatible` is not full `--cubical`. Pin and record the Agda
   version and standard library with each source commit and proof result.
-- Proof Witness Grades (PROOF-POLICY §8, normative; always write the `PWG-`
-  prefix): `PWG-3` = the Agda source is checked under the §2.1 invocation
-  with a receipt (Agda version, stdlib pin, flags, import cone);
-  `PWG-2i` = plus one counted Rocq or Lean recheck (kernel-accepted and
-  §2.2 `RECONCILED`); `PWG-2ii` = plus both; `PWG-1` = every counted
-  witness has a current per-commit receipt from a headless, pinned run.
-  Engineering proofs (Creusot, Verus, SPARK, Idris2) carry no PWG (§8.1).
-  Grades are derived from receipts, never asserted, and never flattened
-  into a percentage.
+- Proof grades are PROOF-POLICY §8 *Proof Witness Grades*, weakest to
+  strongest, always with the
+  prefix: `PWG-3` (Agda checks under §2.1, with a receipt) < `PWG-2i` (one
+  Rocq or Lean leg, kernel-checked and RECONCILED) < `PWG-2ii` (both legs)
+  < `PWG-1` (per-commit receipts from a pinned headless checker). A non-DTT
+  witness such as Isabelle/HOL is the tag `+foundation-diverse`, not a
+  grade. Grades are derived from receipts, never asserted. Report a census
+  with its denominator, never a percentage.
 - Missing tools, incompatible dependencies or failed theorems are open
   obligations. Do not skip proofs or weaken flags to make a check green.
 - Escape hatches follow `docs/TRUSTED-BASE-REDUCTION-POLICY.adoc` and are
@@ -69,10 +68,8 @@ file, not this summary.
 - An ECHIDNA result is *evidence about someone else's proof*. Burrower
   records the grade it was told and never asserts one it derived.
 
-Status for this repo: 2 of 14 tracked obligations proven (DOM-1, DOM-2,
-first-party Agda). Both are `ungraded` until the `agda` job in
-`.github/workflows/proof-safety.yml` has produced a receipt for the current
-`main` commit; `PWG-3` follows from that receipt, not from this sentence, and
-lapses if a later run on `main` fails or cannot be reproduced. See
+Status for this repo: DOM-1 and DOM-2 (Agda theory) are `PWG-3` (2 of 2),
+derived from `docs/reports/2026-11-09-agda-cone-receipts.jsonl`; no Rocq or
+Lean leg yet. See
 `docs/status/PROOF-STATUS.adoc` and
 `docs/reports/audit/2026-11-01-echidna-topology-audit.adoc`.
