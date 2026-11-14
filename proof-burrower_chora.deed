@@ -14,8 +14,8 @@
 (repo-deed
   :schema-version "1.0.0"
   :canonical-name "proof-burrower"
-  :beholding-chora #u5"estate/chora"
-  :repo-uuid #u5"github.com/hyperpolymath/proof-burrower"
+  :beholding-chora #u8"chora:estate/github.com/hyperpolymath"
+  :repo-uuid #u8"gv-clade-index:github.com/hyperpolymath/proof-burrower"
   (identity
     :primary-forge github
     :owner "hyperpolymath"
